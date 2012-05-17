@@ -678,7 +678,8 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                     final PotentialSnapshotWorkMessage msg = new PotentialSnapshotWorkMessage();
                     @Override
                     public void run() {
-                        PartitionExecutor.this.work_queue.add(msg);
+                        assert(msg!=null);
+                        //PartitionExecutor.this.work_queue.add(msg);
                     }
                 });
             }
@@ -830,7 +831,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                         }
                     }
                 }
-                
+                assert(work!=null);
                 // -------------------------------
                 // Transactional Work
                 // -------------------------------
@@ -1324,6 +1325,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
      */
     public void queueWork(AbstractTransaction ts, FragmentTaskMessage task) {
         assert(ts.isInitialized());
+        assert(task!=null);
         this.work_queue.add(task);
         if (d) LOG.debug(String.format("%s - Added distributed txn %s to front of partition %d work queue [size=%d]",
                                        ts, task.getClass().getSimpleName(), this.partitionId, this.work_queue.size()));
@@ -1337,6 +1339,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
     public void queueFinish(AbstractTransaction ts, Status status) {
         assert(ts.isInitialized());
         FinishTaskMessage task = ts.getFinishTaskMessage(status);
+        assert(task != null);
         this.work_queue.add(task);
         if (d) LOG.debug(String.format("%s - Added distributed %s to front of partition %d work queue [size=%d]",
                                        ts, task.getClass().getSimpleName(), this.partitionId, this.work_queue.size()));
@@ -1362,7 +1365,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
         if (hstore_conf.site.exec_speculative_execution && singlePartitioned && this.currentExecMode != ExecutionMode.DISABLED) {
             if (d) LOG.debug(String.format("%s - Adding to work queue at partition %d [size=%d]", ts, this.partitionId, this.work_queue.size()));
             if (d) LOG.debug(String.format("Is part of mapreduce: " + mapreduce_part));
-            
+            assert(task!=null);
             if (mapreduce_part) success = this.work_throttler.offer(task, true);
             else success = this.work_throttler.offer(task, false);
             
@@ -1382,11 +1385,13 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                     // Only use the throttler for single-partition txns
                     if (singlePartitioned) {
                         if (d) LOG.debug(String.format("Is part of mapreduce: " + mapreduce_part));
+                        assert(task !=null);
                         if (mapreduce_part) success = this.work_throttler.offer(task, true);
                         else success = this.work_throttler.offer(task, false);
                         
                     } else {
                         // this.work_queue.addFirst(task);
+                        assert(task != null);
                         this.work_queue.add(task);
                     }
                 }
@@ -3163,6 +3168,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                                            this.currentBlockedTxns.size(), this.partitionId, ts));
             int released = 0;
             for (VoltMessage msg : this.currentBlockedTxns) {
+                assert(msg!=null);
                 this.work_queue.add(msg);
                 released++;
             } // FOR

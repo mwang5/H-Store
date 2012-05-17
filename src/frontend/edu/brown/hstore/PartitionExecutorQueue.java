@@ -20,6 +20,23 @@ public class PartitionExecutorQueue extends PriorityBlockingQueue<VoltMessage> {
     public PartitionExecutorQueue() {
         super(10000, WORK_COMPARATOR); // FIXME
     }
+    @Override
+    public boolean add(VoltMessage e) {
+       assert(e!=null);
+       return super.add(e);
+    }
+    @Override
+    public boolean offer(VoltMessage e) {
+        assert(e!=null);
+        return super.offer(e);
+    }
+    
+    @Override
+    public boolean addAll(Collection<? extends VoltMessage> c) {
+        assert(c!=null);
+        assert(c.size()!=0);
+        return super.addAll(c);
+    }
     
     @Override
     public int drainTo(Collection<? super VoltMessage> c) {
