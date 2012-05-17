@@ -172,12 +172,12 @@ public class SnapshotSiteProcessor {
                 m_snapshotTargets.add(task.m_target);
             }
             // FIXME meng
-//            if (!ee.activateTableStream(task.m_tableId, TableStreamType.SNAPSHOT )) {
-//                LOG.error("Attempted to activate copy on write mode for table "
-//                        + task.m_name + " and failed");
-//                LOG.error(task);
-//                VoltDB.crashVoltDB();
-//            }
+            if (!ee.activateTableStream(task.m_tableId, TableStreamType.SNAPSHOT )) {
+                LOG.error("Attempted to activate copy on write mode for table "
+                        + task.m_name + " and failed");
+                LOG.error(task);
+                VoltDB.crashVoltDB();
+            }
         }
     }
 
@@ -206,12 +206,13 @@ public class SnapshotSiteProcessor {
             assert(snapshotBuffer != null);
             snapshotBuffer.b.clear();
             snapshotBuffer.b.position(headerSize);
-            final int serialized = 0; // FIXME (meng)
-//                ee.tableStreamSerializeMore(
-//                    snapshotBuffer,
-//                    currentTask.m_tableId,
-//                    TableStreamType.SNAPSHOT);
+            final int serialized = // FIXME (meng)
+                ee.tableStreamSerializeMore(
+                    snapshotBuffer,
+                    currentTask.m_tableId,
+                    TableStreamType.SNAPSHOT);
 
+            LOG.info("serialized = " + serialized);
             if (serialized < 0) {
                 LOG.error("Failure while serialize data from a table for COW snapshot");
                 VoltDB.crashVoltDB();

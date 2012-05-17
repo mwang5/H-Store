@@ -103,9 +103,9 @@ public class SnapshotSaveAPI
 
             if (failures.isEmpty()) {
                 blockingResult.addRow(
-                        Integer.parseInt(context.getSite().getHost().getTypeName()),
+                        context.getSite().getHost().getId(),
                         hostname,
-                        Integer.parseInt(context.getSite().getTypeName()),
+                        context.getSite().getId(),
                         status,
                         err);
             } else {
@@ -114,9 +114,9 @@ public class SnapshotSaveAPI
                     err = e.toString();
                 }
                 blockingResult.addRow(
-                        Integer.parseInt(context.getSite().getHost().getTypeName()),
+                        context.getSite().getHost().getId(),
                         hostname,
-                        Integer.parseInt(context.getSite().getTypeName()),
+                        context.getSite().getId(),
                         status,
                         err);
             }
@@ -131,8 +131,8 @@ public class SnapshotSaveAPI
             long startTime, SystemProcedureExecutionContext context,
             String hostname, final VoltTable result) {
         {
-            final int numLocalSites = VoltDB.instance().getLocalSites().values().size();
-
+            //final int numLocalSites = VoltDB.instance().getLocalSites().values().size();
+        	final int numLocalSites = CatalogUtil.getSitesForHost(context.getSite().getHost()).size();
             /*
              * Used to close targets on failure
              */
@@ -244,7 +244,7 @@ public class SnapshotSaveAPI
                         "RESULTED IN IOException: \n" + sw.toString();
                     }
 
-                    result.addRow(Integer.parseInt(context.getSite().getHost().getTypeName()),
+                    result.addRow(context.getSite().getHost().getId(),
                             hostname,
                             table.getTypeName(),
                             canSnapshot,
@@ -254,7 +254,8 @@ public class SnapshotSaveAPI
                 synchronized (SnapshotSiteProcessor.m_taskListsForSites) {
                     if (!partitionedSnapshotTasks.isEmpty() || !replicatedSnapshotTasks.isEmpty()) {
                         SnapshotSiteProcessor.ExecutionSitesCurrentlySnapshotting.set(
-                                VoltDB.instance().getLocalSites().values().size());
+                                //VoltDB.instance().getLocalSites().values().size());
+                        		CatalogUtil.getSitesForHost(context.getSite().getHost()).size());
                         for (int ii = 0; ii < numLocalSites; ii++) {
                             SnapshotSiteProcessor.m_taskListsForSites.add(new ArrayDeque<SnapshotTableTask>());
                         }
@@ -292,7 +293,7 @@ public class SnapshotSaveAPI
                 ex.printStackTrace(pw);
                 pw.flush();
                 result.addRow(
-                        Integer.parseInt(context.getSite().getHost().getTypeName()),
+                        context.getSite().getHost().getId(),
                         hostname,
                         "",
                         "FAILURE",
@@ -310,7 +311,7 @@ public class SnapshotSaveAPI
         try {
             SnapshotSiteProcessor.m_snapshotPermits.acquire();
         } catch (Exception e) {
-            result.addRow(Integer.parseInt(context.getSite().getHost().getTypeName()),
+            result.addRow(context.getSite().getHost().getId(),
                     hostname,
                     "",
                     "FAILURE",
@@ -343,7 +344,7 @@ public class SnapshotSaveAPI
     throws IOException
     {
         return new DefaultSnapshotDataTarget(f,
-                                             Integer.parseInt(h.getTypeName()),
+                                             h.getId(),
                                              context.getCluster().getTypeName(),
                                              context.getDatabase().getTypeName(),
                                              table.getTypeName(),

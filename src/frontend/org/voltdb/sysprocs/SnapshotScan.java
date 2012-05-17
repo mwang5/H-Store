@@ -34,20 +34,23 @@ import org.voltdb.DependencySet;
 import org.voltdb.HsqlBackend;
 import org.voltdb.ParameterSet;
 import org.voltdb.ProcInfo;
-import org.voltdb.VoltDB;
 import org.voltdb.VoltSystemProcedure;
 import org.voltdb.VoltTable;
 import org.voltdb.VoltTable.ColumnInfo;
 import org.voltdb.VoltTableRow;
 import org.voltdb.VoltType;
+import org.voltdb.catalog.Host;
 import org.voltdb.catalog.Procedure;
+import org.voltdb.catalog.Site;
 import org.voltdb.client.ConnectionUtil;
 import org.voltdb.dtxn.DtxnConstants;
 import org.voltdb.sysprocs.saverestore.SnapshotUtil;
 import org.voltdb.sysprocs.saverestore.TableSaveFile;
 
+import edu.brown.catalog.CatalogUtil;
 import edu.brown.hstore.PartitionExecutor;
 import edu.brown.hstore.PartitionExecutor.SystemProcedureExecutionContext;
+import edu.brown.utils.CollectionUtil;
 import edu.brown.utils.PartitionEstimator;
 
 @ProcInfo(singlePartition = false)
@@ -100,10 +103,9 @@ public class SnapshotScan extends VoltSystemProcedure {
             final VoltTable results = constructFragmentResultsTable();
             // Choose the lowest site ID on this host to do the file scan
             // All other sites should just return empty results tables.
-            int host_id = context.getExecutionSite().getHostId();
-            Integer lowest_site_id =
-                VoltDB.instance().getCatalogContext().siteTracker.
-                getLowestLiveExecSiteIdForHost(host_id);
+            Host catalog_host = context.getHost();
+            Site catalog_site = CollectionUtil.first(CatalogUtil.getSitesForHost(catalog_host));
+            Integer lowest_site_id = catalog_site.getId();
             if (context.getExecutionSite().getSiteId() == lowest_site_id)
             {
                 assert(params.toArray()[0] != null);
@@ -112,7 +114,7 @@ public class SnapshotScan extends VoltSystemProcedure {
                 List<File> relevantFiles = retrieveRelevantFiles(path);
                 if (relevantFiles == null) {
                     results.addRow(
-                                   Integer.parseInt(context.getSite().getHost().getTypeName()),
+                                   context.getSite().getHost().getId(),
                                    hostname,
                                    "",
                                    "",
@@ -151,7 +153,7 @@ public class SnapshotScan extends VoltSystemProcedure {
                                     }
 
                                     results.addRow(
-                                                   Integer.parseInt(context.getSite().getHost().getTypeName()),
+                                                   context.getSite().getHost().getId(),
                                                    hostname,
                                                    f.getParent(),
                                                    f.getName(),
@@ -176,7 +178,7 @@ public class SnapshotScan extends VoltSystemProcedure {
                             }
                         } else {
                             results.addRow(
-                                           Integer.parseInt(context.getSite().getHost().getTypeName()),
+                                           context.getSite().getHost().getId(),
                                            hostname,
                                            f.getParent(),
                                            f.getName(),
@@ -216,10 +218,9 @@ public class SnapshotScan extends VoltSystemProcedure {
             final VoltTable results = constructDigestResultsTable();
             // Choose the lowest site ID on this host to do the file scan
             // All other sites should just return empty results tables.
-            int host_id = context.getExecutionSite().getHostId();
-            Integer lowest_site_id =
-                VoltDB.instance().getCatalogContext().siteTracker.
-                getLowestLiveExecSiteIdForHost(host_id);
+            Host catalog_host = context.getHost();
+            Site catalog_site = CollectionUtil.first(CatalogUtil.getSitesForHost(catalog_host));
+            Integer lowest_site_id = catalog_site.getId();
             if (context.getExecutionSite().getSiteId() == lowest_site_id)
             {
                 assert(params.toArray()[0] != null);
@@ -228,7 +229,7 @@ public class SnapshotScan extends VoltSystemProcedure {
                 List<File> relevantFiles = retrieveRelevantFiles(path);
                 if (relevantFiles == null) {
                     results.addRow(
-                                   Integer.parseInt(context.getSite().getHost().getTypeName()),
+                                   context.getSite().getHost().getId(),
                                    "",
                                    "",
                                    "",
@@ -249,7 +250,7 @@ public class SnapshotScan extends VoltSystemProcedure {
                                         sw.append(',');
                                     }
                                 }
-                                results.addRow(Integer.parseInt(context.getSite().getHost().getTypeName()),
+                                results.addRow(context.getSite().getHost().getId(),
                                                path,
                                                f.getName(),
                                                sw.toString(),
@@ -283,10 +284,9 @@ public class SnapshotScan extends VoltSystemProcedure {
             final VoltTable results = constructDiskFreeResultsTable();
             // Choose the lowest site ID on this host to do the file scan
             // All other sites should just return empty results tables.
-            int host_id = context.getExecutionSite().getHostId();
-            Integer lowest_site_id =
-                VoltDB.instance().getCatalogContext().siteTracker.
-                getLowestLiveExecSiteIdForHost(host_id);
+            Host catalog_host = context.getHost();
+            Site catalog_site = CollectionUtil.first(CatalogUtil.getSitesForHost(catalog_host));
+            Integer lowest_site_id = catalog_site.getId();
             if (context.getExecutionSite().getSiteId() == lowest_site_id)
             {
                 assert(params.toArray()[0] != null);
@@ -299,7 +299,7 @@ public class SnapshotScan extends VoltSystemProcedure {
                     final long total = dir.getTotalSpace();
                     final long used = total - free;
                     results.addRow(
-                                   Integer.parseInt(context.getSite().getHost().getTypeName()),
+                                   context.getSite().getHost().getId(),
                                    hostname,
                                    path,
                                    total,
@@ -309,7 +309,7 @@ public class SnapshotScan extends VoltSystemProcedure {
                     "");
                 } else {
                     results.addRow(
-                                   Integer.parseInt(context.getSite().getHost().getTypeName()),
+                                   context.getSite().getHost().getId(),
                                    hostname,
                                    path,
                                    0,

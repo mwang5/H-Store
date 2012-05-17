@@ -181,7 +181,7 @@ public class SnapshotSave extends VoltSystemProcedure
 
                 if (SnapshotSiteProcessor.ExecutionSitesCurrentlySnapshotting.get() != -1) {
                     result.addRow(
-                                  Integer.parseInt(context.getSite().getHost().getTypeName()),
+                                  context.getSite().getHost().getId(),
                                   hostname,
                                   "",
                                   "FAILURE",
@@ -287,7 +287,7 @@ public class SnapshotSave extends VoltSystemProcedure
         // See if we think the save will succeed
         VoltTable[] results;
         results = performSaveFeasibilityWork(path, nonce);
-        LOG.info("performSaveFeasibilityWork Results:\n" + results);
+        LOG.info("performSaveFeasibilityWork Results:\n" + results[0]);
 
         // Test feasibility results for fail
         while (results[0].advanceRow())
