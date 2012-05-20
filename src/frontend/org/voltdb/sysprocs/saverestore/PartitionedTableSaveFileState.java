@@ -27,15 +27,22 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.voltdb.VoltDB;
 import org.apache.log4j.Logger;
 import org.voltdb.ParameterSet;
-import org.voltdb.VoltDB;
 import org.voltdb.VoltSystemProcedure.SynthesizedPlanFragment;
 import org.voltdb.VoltTableRow;
+import org.voltdb.catalog.Catalog;
+import org.voltdb.catalog.CatalogType;
+import org.voltdb.catalog.Cluster;
+import org.voltdb.catalog.Host;
+import org.voltdb.catalog.Site;
 import org.voltdb.catalog.Table;
 import org.voltdb.sysprocs.SysProcFragmentId;
 import org.voltdb.utils.Pair;
 
+import edu.brown.catalog.CatalogUtil;
+import edu.brown.hstore.HStore;
 
 public class PartitionedTableSaveFileState extends TableSaveFileState
 {
@@ -129,6 +136,7 @@ public class PartitionedTableSaveFileState extends TableSaveFileState
     private SynthesizedPlanFragment[] generatePartitionedToPartitionedPlan()
     {
         LOG.info("Partition set: " + m_partitionsSeen);
+
         ArrayList<SynthesizedPlanFragment> restorePlan =
             new ArrayList<SynthesizedPlanFragment>();
         HashSet<Integer> coveredPartitions = new HashSet<Integer>();
@@ -159,11 +167,23 @@ public class PartitionedTableSaveFileState extends TableSaveFileState
                     originalHosts.add(p.getSecond());
                 }
             }
-
-            List<Integer> sitesAtHost =
-                VoltDB.instance().getCatalogContext().siteTracker.
-                getLiveExecutionSitesForHost(nextHost);
-
+    
+            Cluster catalog_clus = CatalogUtil.getCluster(HStore.instance().getCatalog());
+            Host[] hosts_value = catalog_clus.getHosts().values();
+            List<Integer> sitesAtHost = new ArrayList<Integer>();
+            for(int j=0; j<hosts_value.length; j++){
+                if (hosts_value[j].getId() == nextHost) {
+                    List<Site> siteList = CatalogUtil.getSitesForHost(hosts_value[j]);
+                    
+                    for (Site site: siteList) {
+                        sitesAtHost.add(site.getId());
+                    }   
+                }
+            }
+//            List<Integer> sitesAtHost =
+//                    VoltDB.instance().getCatalogContext().siteTracker.
+//                    getLiveExecutionSitesForHost(nextHost);
+            
             int originalHostsArray[] = new int[originalHosts.size()];
             int qq = 0;
             for (int originalHostId : originalHosts) originalHostsArray[qq++] = originalHostId;

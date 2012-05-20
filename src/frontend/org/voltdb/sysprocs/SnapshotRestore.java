@@ -42,12 +42,13 @@ import org.voltdb.ParameterSet;
 import org.voltdb.PrivateVoltTableFactory;
 import org.voltdb.ProcInfo;
 import org.voltdb.TheHashinator;
-import org.voltdb.VoltDB;
 import org.voltdb.VoltSystemProcedure;
 import org.voltdb.VoltTable;
 import org.voltdb.VoltTable.ColumnInfo;
 import org.voltdb.VoltType;
 import org.voltdb.VoltTypeException;
+import org.voltdb.catalog.Catalog;
+import org.voltdb.catalog.CatalogType;
 import org.voltdb.catalog.Host;
 import org.voltdb.catalog.Partition;
 import org.voltdb.catalog.Procedure;
@@ -76,9 +77,9 @@ public class SnapshotRestore extends VoltSystemProcedure
     private static final Logger LOG = Logger.getLogger(SnapshotRestore.class);
 
     private static final int DEP_restoreScan = (int)
-        SysProcFragmentId.PF_restoreScan | DtxnConstants.MULTIPARTITION_DEPENDENCY;
-    private static final int DEP_restoreScanResults = (int)
-        SysProcFragmentId.PF_restoreScanResults;
+            SysProcFragmentId.PF_restoreScan | DtxnConstants.MULTIPARTITION_DEPENDENCY;
+        private static final int DEP_restoreScanResults = (int)
+            SysProcFragmentId.PF_restoreScanResults;
 
     private static HashSet<String>  m_initializedTableSaveFiles = new HashSet<String>();
     private static ArrayDeque<TableSaveFile> m_saveFiles = new ArrayDeque<TableSaveFile>();
@@ -92,17 +93,22 @@ public class SnapshotRestore extends VoltSystemProcedure
         if (!m_initializedTableSaveFiles.add(tableName)) {
             return;
         }
+        CatalogType c = getCatalog(m_extor);
         for (int originalHostId : originalHostIds) {
             final File f = getSaveFileForPartitionedTable( filePath, fileNonce, tableName, originalHostId);
             m_saveFiles.offer(
                     getTableSaveFile(
                             f,
-                            org.voltdb.VoltDB.instance().getLocalSites().size() * 4,
+                            CatalogUtil.getNumberOfPartitions(c.getCatalog()) * 4,
+                            //org.voltdb.VoltDB.instance().getLocalSites().size() * 4,
                             relevantPartitionIds));
             assert(m_saveFiles.peekLast().getCompleted());
         }
     }
-
+    private static Catalog getCatalog(PartitionExecutor e){
+        return e.getCatalogSite().getCatalog();
+    }
+    
     private static synchronized boolean hasMoreChunks() {
         boolean hasMoreChunks = false;
         while (!hasMoreChunks && m_saveFiles.peek() != null) {
@@ -168,6 +174,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                                   this);
         m_siteId = site.getSiteId();
         m_hostId = site.getHostId();
+        m_extor = site;
     }
 
     @Override
@@ -564,9 +571,7 @@ public class SnapshotRestore extends VoltSystemProcedure
         try
         {
             savefile_state = new ClusterSaveFileState(savefile_data[0], (int)allowExport);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new VoltAbortException(e.getMessage());
         }
 
@@ -730,6 +735,7 @@ public class SnapshotRestore extends VoltSystemProcedure
 
         VoltTable[] results;
         results = executeSysProcPlanFragments(pfs, DEP_restoreScanResults);
+        LOG.info("Result: " + results[0]);
         return results;
     }
 
@@ -738,11 +744,14 @@ public class SnapshotRestore extends VoltSystemProcedure
         Set<Table> tables_to_restore = new HashSet<Table>();
         for (Table table : this.database.getTables())
         {
+            LOG.info("Table stored in" + table.getPath());
+            LOG.info(table.getTypeName());
             if (savedTableNames.contains(table.getTypeName()))
             {
                 if (table.getMaterializer() == null)
                 {
                     tables_to_restore.add(table);
+                    LOG.info(tables_to_restore.size());
                 }
                 else
                 {
@@ -927,7 +936,8 @@ public class SnapshotRestore extends VoltSystemProcedure
         // LoadMultipartitionTable.  Consider ways to consolidate later
         Map<Integer, Integer> sites_to_partitions =
             new HashMap<Integer, Integer>();
-        for (Site site : VoltDB.instance().getCatalogContext().siteTracker.getUpSites())
+        CatalogType catalog_c = getCatalog(m_extor);
+        for (Site site : CatalogUtil.getCluster(catalog_c.getCatalog()).getSites())
         {
             for (Partition partition : site.getPartitions()) {
                 sites_to_partitions.put(site.getId(),
@@ -1095,6 +1105,7 @@ public class SnapshotRestore extends VoltSystemProcedure
         return this.database.getTables().get(tableName);
     }
 
+    private static PartitionExecutor m_extor;
     private int m_siteId;
     private int m_hostId;
     private static volatile String m_filePath;

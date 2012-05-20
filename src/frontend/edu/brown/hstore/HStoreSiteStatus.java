@@ -174,7 +174,7 @@ public class HStoreSiteStatus implements Runnable, Shutdownable {
             if (this.hstore_site.isRunning() == false) continue;
 
             // Out we go!
-            this.printSnapshot();
+            //this.printSnapshot();
             
             // If we're not making progress, bring the whole thing down!
             int completed = TxnCounter.COMPLETED.get();

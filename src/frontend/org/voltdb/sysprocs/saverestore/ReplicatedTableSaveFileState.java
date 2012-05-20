@@ -19,14 +19,20 @@ package org.voltdb.sysprocs.saverestore;
 
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.voltdb.ParameterSet;
-import org.voltdb.VoltDB;
 import org.voltdb.VoltTableRow;
 import org.voltdb.VoltSystemProcedure.SynthesizedPlanFragment;
+import org.voltdb.catalog.Cluster;
+import org.voltdb.catalog.Host;
+import org.voltdb.catalog.Site;
 import org.voltdb.catalog.Table;
 import org.voltdb.sysprocs.SysProcFragmentId;
+
+import edu.brown.catalog.CatalogUtil;
+import edu.brown.hstore.HStore;
 
 public class ReplicatedTableSaveFileState extends TableSaveFileState
 {
@@ -60,10 +66,17 @@ public class ReplicatedTableSaveFileState extends TableSaveFileState
     @Override
     public SynthesizedPlanFragment[]
     generateRestorePlan(Table catalogTable)
-    {
-        for (int hostId : m_hostsWithThisTable) {
-            m_sitesWithThisTable.addAll(VoltDB.instance().getCatalogContext().
-                                        siteTracker.getLiveExecutionSitesForHost(hostId));
+    {            
+        Cluster catalog_clus = CatalogUtil.getCluster(HStore.instance().getCatalog());
+        Host[] hosts_value = catalog_clus.getHosts().values();
+        for (int hostId : m_hostsWithThisTable) {        
+            List<Site> siteList = CatalogUtil.getSitesForHost(hosts_value[hostId-1]);
+            for (Site i : siteList) {
+                m_sitesWithThisTable.add(i.getId());
+            }      
+
+//            m_sitesWithThisTable.addAll(VoltDB.instance().getCatalogContext().
+//                                        siteTracker.getLiveExecutionSitesForHost(hostId));
         }
 
         SynthesizedPlanFragment[] restore_plan = null;
@@ -92,9 +105,17 @@ public class ReplicatedTableSaveFileState extends TableSaveFileState
     private SynthesizedPlanFragment[]
     generateReplicatedToReplicatedPlan()
     {
+        Cluster catalog_clus = CatalogUtil.getCluster(HStore.instance().getCatalog());
+        Host[] hosts_value = catalog_clus.getHosts().values();
+        List<Site> siteList = CatalogUtil.getSitesForHost(hosts_value[0]);
+        Set<Integer> execution_site_ids = new HashSet<Integer>();
+        for (Site site: siteList) {
+            execution_site_ids.add(site.getId());
+        }
+
         SynthesizedPlanFragment[] restore_plan = null;
-        Set<Integer> execution_site_ids =
-            VoltDB.instance().getCatalogContext().siteTracker.getExecutionSiteIds();
+//        Set<Integer> execution_site_ids = 
+//            VoltDB.instance().getCatalogContext().siteTracker.getExecutionSiteIds();
         Set<Integer> sites_missing_table =
             getSitesMissingTable(execution_site_ids);
         // not sure we want to deal with handling expected load failures,

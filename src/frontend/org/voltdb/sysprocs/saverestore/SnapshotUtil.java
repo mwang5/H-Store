@@ -652,7 +652,7 @@ public class SnapshotUtil {
         final int retval[] = new int[results.size()];
         int ii = 0;
         for (final Partition p : results) {
-            retval[ii++] = Integer.parseInt(p.getTypeName());
+            retval[ii++] = p.getId();
         }
         return retval;
     }
