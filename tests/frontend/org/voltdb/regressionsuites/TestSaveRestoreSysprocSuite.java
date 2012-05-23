@@ -49,6 +49,7 @@ import org.voltdb.catalog.Site;
 import org.voltdb.catalog.Table;
 import org.voltdb.client.Client;
 import org.voltdb.client.ProcCallException;
+import org.voltdb.compiler.VoltProjectBuilder;
 import org.voltdb.utils.SnapshotConverter;
 import org.voltdb.utils.SnapshotVerifier;
 import org.voltdb.regressionsuites.saverestore.CatalogChangeSingleProcessServer;
@@ -1419,14 +1420,11 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
     * helpers to allow multiple back ends.
     * JUnit magic that uses the regression suite helper classes.
     */
-    static public Test suite() {
-        VoltServerConfig config = null;
-
-        MultiConfigSuiteBuilder builder =
-            new MultiConfigSuiteBuilder(TestSaveRestoreSysprocSuite.class);
-
-        SaveRestoreTestProjectBuilder project =
-            new SaveRestoreTestProjectBuilder();
+    static public junit.framework.Test suite() {
+        
+        MultiConfigSuiteBuilder builder = new MultiConfigSuiteBuilder(TestSaveRestoreSysprocSuite.class);       
+        VoltServerConfig config = null;      
+        VoltProjectBuilder project = new VoltProjectBuilder("saverestore");
         project.addAllDefaults();
 
         config =
