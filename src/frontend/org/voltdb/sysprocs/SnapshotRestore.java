@@ -49,6 +49,7 @@ import org.voltdb.VoltType;
 import org.voltdb.VoltTypeException;
 import org.voltdb.catalog.Catalog;
 import org.voltdb.catalog.CatalogType;
+import org.voltdb.catalog.Cluster;
 import org.voltdb.catalog.Host;
 import org.voltdb.catalog.Partition;
 import org.voltdb.catalog.Procedure;
@@ -64,6 +65,7 @@ import org.voltdb.sysprocs.saverestore.TableSaveFileState;
 import org.voltdb.utils.DBBPool.BBContainer;
 
 import edu.brown.catalog.CatalogUtil;
+import edu.brown.hstore.HStore;
 import edu.brown.hstore.PartitionExecutor;
 import edu.brown.hstore.PartitionExecutor.SystemProcedureExecutionContext;
 import edu.brown.utils.CollectionUtil;
@@ -99,10 +101,11 @@ public class SnapshotRestore extends VoltSystemProcedure
             m_saveFiles.offer(
                     getTableSaveFile(
                             f,
-                            CatalogUtil.getNumberOfPartitions(c.getCatalog()) * 4,
+                            CatalogUtil.getNumberOfPartitions(c.getCatalog()) * 4, 
                             //org.voltdb.VoltDB.instance().getLocalSites().size() * 4,
                             relevantPartitionIds));
             assert(m_saveFiles.peekLast().getCompleted());
+
         }
     }
     private static Catalog getCatalog(PartitionExecutor e){
@@ -443,6 +446,7 @@ public class SnapshotRestore extends VoltSystemProcedure
             for (int dep_id : dependencies.keySet())
             {
                 List<VoltTable> table_list = dependencies.get(dep_id);
+                LOG.info("table size is:" + table_list.size());
                 assert(table_list.size() == 1);
                 VoltTable t = table_list.get(0);
                 while (t.advanceRow())
