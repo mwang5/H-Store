@@ -24,23 +24,14 @@
 package org.voltdb.regressionsuites;
 
 import java.io.ByteArrayOutputStream;
-import java.io.EOFException;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FilenameFilter;
-import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
-import java.nio.ByteBuffer;
-
-import junit.framework.Test;
-
 import org.voltdb.BackendTarget;
 import org.voltdb.DefaultSnapshotDataTarget;
-import org.voltdb.VoltDB;
 import org.voltdb.VoltTable;
 import org.voltdb.VoltTable.ColumnInfo;
-import org.voltdb.VoltTableRow;
 import org.voltdb.VoltType;
 import org.voltdb.catalog.CatalogMap;
 import org.voltdb.catalog.Cluster;
@@ -48,9 +39,6 @@ import org.voltdb.catalog.Database;
 import org.voltdb.catalog.Site;
 import org.voltdb.catalog.Table;
 import org.voltdb.client.Client;
-import org.voltdb.client.ProcCallException;
-import org.voltdb.compiler.VoltProjectBuilder;
-import org.voltdb.utils.SnapshotConverter;
 import org.voltdb.utils.SnapshotVerifier;
 import org.voltdb.regressionsuites.saverestore.CatalogChangeSingleProcessServer;
 import org.voltdb.regressionsuites.saverestore.SaveRestoreTestProjectBuilder;
@@ -609,12 +597,12 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
             }
         }
 
-//        for (Site s : sites) {
-//            if (s.getIsexec()) {
-//                expected_entries++;
-//            }
-//        }
-//        assertEquals(expected_entries, results[0].getRowCount());
+        for (Site s : sites) {
+            if (s.getIsup()) {
+                expected_entries++;
+            }
+        }
+        assertEquals(expected_entries, results[0].getRowCount());
 
         while (results[0].advanceRow())
         {
@@ -1421,11 +1409,17 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
     * JUnit magic that uses the regression suite helper classes.
     */
     static public junit.framework.Test suite() {
+        MultiConfigSuiteBuilder builder =
+            new MultiConfigSuiteBuilder(TestSaveRestoreSysprocSuite.class);
         
-        MultiConfigSuiteBuilder builder = new MultiConfigSuiteBuilder(TestSaveRestoreSysprocSuite.class);       
-        VoltServerConfig config = null;      
-        VoltProjectBuilder project = new VoltProjectBuilder("saverestore");
-        project.addAllDefaults();
+        VoltServerConfig config = null;
+        
+        SaveRestoreTestProjectBuilder project =
+            new SaveRestoreTestProjectBuilder();
+        project.addDefaultPartitioning();
+        project.addDefaultSchema();
+        project.addDefaultProcedures();
+        //project.addAllDefaults();
 
         config =
             new CatalogChangeSingleProcessServer("sysproc-threesites.jar", 3,
