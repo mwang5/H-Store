@@ -96,25 +96,17 @@ public class SnapshotRestore extends VoltSystemProcedure
             return;
         }
         CatalogType c = getCatalog(m_extor);
-//        Cluster catalog_clus = CatalogUtil.getCluster(c);
-//        Host[] hosts_value = catalog_clus.getHosts().values();
 
-        for (int originalHostId : originalHostIds) {        
-
-            final File f = getSaveFileForPartitionedTable( filePath, fileNonce, tableName, originalHostId);            
-//            for (final Host h : hosts_value) {
-//                if (h.getId() == originalHostId){
-
+        for (int originalHostId : originalHostIds) {
+            final File f = getSaveFileForPartitionedTable( filePath, fileNonce, tableName, originalHostId);
             m_saveFiles.offer(
                     getTableSaveFile(
                             f,
-                            //CatalogUtil.getPartitionsForHost(h).size()*4,
                             CatalogUtil.getNumberOfPartitions(c.getCatalog()) * 4, 
                             //org.voltdb.VoltDB.instance().getLocalSites().size() * 4,
                             relevantPartitionIds));
             assert(m_saveFiles.peekLast().getCompleted());
-//                }
-//            }
+
         }
     }
     private static Catalog getCatalog(PartitionExecutor e){
