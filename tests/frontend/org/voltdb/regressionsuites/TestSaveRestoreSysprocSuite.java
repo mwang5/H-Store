@@ -29,7 +29,6 @@ import java.io.FilenameFilter;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import org.voltdb.BackendTarget;
-import org.voltdb.DefaultSnapshotDataTarget;
 import org.voltdb.VoltTable;
 import org.voltdb.VoltTable.ColumnInfo;
 import org.voltdb.VoltType;
