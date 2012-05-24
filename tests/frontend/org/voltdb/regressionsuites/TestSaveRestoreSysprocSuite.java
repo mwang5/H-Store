@@ -24,15 +24,10 @@
 package org.voltdb.regressionsuites;
 
 import java.io.ByteArrayOutputStream;
-import java.io.EOFException;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FilenameFilter;
-import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
-import java.nio.ByteBuffer;
-
 import org.voltdb.BackendTarget;
 import org.voltdb.DefaultSnapshotDataTarget;
 import org.voltdb.VoltTable;
@@ -44,8 +39,6 @@ import org.voltdb.catalog.Database;
 import org.voltdb.catalog.Site;
 import org.voltdb.catalog.Table;
 import org.voltdb.client.Client;
-import org.voltdb.client.ProcCallException;
-import org.voltdb.utils.SnapshotConverter;
 import org.voltdb.utils.SnapshotVerifier;
 import org.voltdb.regressionsuites.saverestore.SaveRestoreTestProjectBuilder;
 
@@ -68,6 +61,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
     @Override
     public void setUp()
     {
+        deleteTestFiles();
         super.setUp();
         DefaultSnapshotDataTarget.m_simulateFullDiskWritingChunk = false;
         DefaultSnapshotDataTarget.m_simulateFullDiskWritingHeader = false;
@@ -105,41 +99,6 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         {
             tmp_file.delete();
         }
-    }
-
-    private void corruptTestFiles(java.util.Random r) throws Exception
-    {
-        FilenameFilter cleaner = new FilenameFilter()
-        {
-            public boolean accept(File dir, String file)
-            {
-                return file.startsWith(TESTNONCE);
-            }
-        };
-
-        File tmp_dir = new File(TMPDIR);
-        File[] tmp_files = tmp_dir.listFiles(cleaner);
-        int tmpIndex = r.nextInt(tmp_files.length);
-        byte corruptValue[] = new byte[1];
-        r.nextBytes(corruptValue);
-        java.io.RandomAccessFile raf = new java.io.RandomAccessFile( tmp_files[tmpIndex], "rw");
-        int corruptPosition = r.nextInt((int)raf.length());
-        raf.seek(corruptPosition);
-        byte currentValue = raf.readByte();
-        while (currentValue == corruptValue[0]) {
-            r.nextBytes(corruptValue);
-        }
-        System.out.println("Corrupting file " + tmp_files[tmpIndex].getName() +
-                " at byte " + corruptPosition + " with value " + corruptValue[0]);
-        raf.seek(corruptPosition);
-        raf.write(corruptValue);
-        raf.close();
-    }
-
-    private VoltTable createReplicatedTable(int numberOfItems,
-            int indexBase,
-            StringBuilder sb) {
-        return createReplicatedTable(numberOfItems, indexBase, sb, false);
     }
 
     private VoltTable createReplicatedTable(int numberOfItems,
@@ -428,8 +387,10 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         try
         {
             results = client.callProcedure("@SnapshotSave", TMPDIR,
-                                           TESTNONCE, (byte)1).getResults();
+                                           TESTNONCE, (byte)1).getResults(); 
+            assert(results != null);
         }
+       
         catch (Exception ex)
         {
             ex.printStackTrace();
