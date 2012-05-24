@@ -61,11 +61,11 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
     @Override
     public void setUp()
     {
-        deleteTestFiles();
+//        deleteTestFiles();
         super.setUp();
-        DefaultSnapshotDataTarget.m_simulateFullDiskWritingChunk = false;
-        DefaultSnapshotDataTarget.m_simulateFullDiskWritingHeader = false;
-        org.voltdb.sysprocs.SnapshotRegistry.clear();
+//        DefaultSnapshotDataTarget.m_simulateFullDiskWritingChunk = false;
+//        DefaultSnapshotDataTarget.m_simulateFullDiskWritingHeader = false;
+//        org.voltdb.sysprocs.SnapshotRegistry.clear();
     }
 
     @Override
@@ -79,27 +79,27 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         }
     }
 
-    private void deleteTestFiles()
-    {
-        FilenameFilter cleaner = new FilenameFilter()
-        {
-            public boolean accept(File dir, String file)
-            {
-                return file.startsWith(TESTNONCE) ||
-                file.endsWith(".vpt") ||
-                file.endsWith(".digest") ||
-                file.endsWith(".tsv") ||
-                file.endsWith(".csv");
-            }
-        };
-
-        File tmp_dir = new File(TMPDIR);
-        File[] tmp_files = tmp_dir.listFiles(cleaner);
-        for (File tmp_file : tmp_files)
-        {
-            tmp_file.delete();
-        }
-    }
+//    private void deleteTestFiles()
+//    {
+//        FilenameFilter cleaner = new FilenameFilter()
+//        {
+//            public boolean accept(File dir, String file)
+//            {
+//                return file.startsWith(TESTNONCE) ||
+//                file.endsWith(".vpt") ||
+//                file.endsWith(".digest") ||
+//                file.endsWith(".tsv") ||
+//                file.endsWith(".csv");
+//            }
+//        };
+//
+//        File tmp_dir = new File(TMPDIR);
+//        File[] tmp_files = tmp_dir.listFiles(cleaner);
+//        for (File tmp_file : tmp_files)
+//        {
+//            tmp_file.delete();
+//        }
+//    }
 
     private VoltTable createReplicatedTable(int numberOfItems,
                                             int indexBase,
