@@ -60,8 +60,7 @@ public class SnapshotUtil {
      * @param tables
      * @throws IOException
      */
-    public static void
-        recordSnapshotTableList(
+    public static void recordSnapshotTableList(
             long snapshotTime,
             String path,
             String nonce,
@@ -98,8 +97,7 @@ public class SnapshotUtil {
         fos.getFD().sync();
     }
 
-    public static List<String> retrieveRelevantTableNames(String path,
-            String nonce) throws Exception {
+    public static List<String> retrieveRelevantTableNames(String path, String nonce) throws Exception {
         return retrieveRelevantTableNamesAndTime(new File(path, constructDigestFilenameForNonce(nonce))).getSecond();
     }
 

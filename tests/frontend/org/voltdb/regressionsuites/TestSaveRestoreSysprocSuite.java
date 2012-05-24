@@ -24,10 +24,14 @@
 package org.voltdb.regressionsuites;
 
 import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FilenameFilter;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+
 import org.voltdb.BackendTarget;
 import org.voltdb.DefaultSnapshotDataTarget;
 import org.voltdb.VoltTable;
@@ -39,6 +43,7 @@ import org.voltdb.catalog.Database;
 import org.voltdb.catalog.Site;
 import org.voltdb.catalog.Table;
 import org.voltdb.client.Client;
+import org.voltdb.utils.SnapshotConverter;
 import org.voltdb.utils.SnapshotVerifier;
 import org.voltdb.regressionsuites.saverestore.CatalogChangeSingleProcessServer;
 import org.voltdb.regressionsuites.saverestore.SaveRestoreTestProjectBuilder;
@@ -469,7 +474,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
     public void testSnapshotSave() throws Exception
     {
         System.out.println("Starting testSnapshotSave");
-        Client client = getClient();
+        Client client = this.getClient();
 
         int num_replicated_items_per_chunk = 100;
         int num_replicated_chunks = 10;
@@ -648,40 +653,40 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         validateSnapshot(false);
     }
 
-//    private void generateAndValidateTextFile(StringBuilder expectedText, boolean csv) throws Exception {
-//        String args[] = new String[] {
-//                TESTNONCE,
-//               "--dir",
-//               TMPDIR,
-//               "--table",
-//               "REPLICATED_TESTER",
-//               "--type",
-//               csv ? "CSV" : "TSV",
-//               "--outdir",
-//               TMPDIR
-//        };
-//        SnapshotConverter.main(args);
-//        FileInputStream fis = new FileInputStream(
-//                TMPDIR + File.separator + "REPLICATED_TESTER" + (csv ? ".csv" : ".tsv"));
-//        try {
-//            int filesize = (int)fis.getChannel().size();
-//            ByteBuffer expectedBytes = ByteBuffer.wrap(expectedText.toString().getBytes("UTF-8"));
-//            ByteBuffer readBytes = ByteBuffer.allocate(filesize);
-//            while (readBytes.hasRemaining()) {
-//                int read = fis.getChannel().read(readBytes);
-//                if (read == -1) {
-//                    throw new EOFException();
-//                }
-//            }
-//            // this throws an exception on failure
-//            new String(readBytes.array(), "UTF-8");
-//
-//            readBytes.flip();
-//            assertTrue(expectedBytes.equals(readBytes));
-//        } finally {
-//            fis.close();
-//        }
-//    }
+    private void generateAndValidateTextFile(StringBuilder expectedText, boolean csv) throws Exception {
+        String args[] = new String[] {
+                TESTNONCE,
+               "--dir",
+               TMPDIR,
+               "--table",
+               "REPLICATED_TESTER",
+               "--type",
+               csv ? "CSV" : "TSV",
+               "--outdir",
+               TMPDIR
+        };
+        SnapshotConverter.main(args);
+        FileInputStream fis = new FileInputStream(
+                TMPDIR + File.separator + "REPLICATED_TESTER" + (csv ? ".csv" : ".tsv"));
+        try {
+            int filesize = (int)fis.getChannel().size();
+            ByteBuffer expectedBytes = ByteBuffer.wrap(expectedText.toString().getBytes("UTF-8"));
+            ByteBuffer readBytes = ByteBuffer.allocate(filesize);
+            while (readBytes.hasRemaining()) {
+                int read = fis.getChannel().read(readBytes);
+                if (read == -1) {
+                    throw new EOFException();
+                }
+            }
+            // this throws an exception on failure
+            new String(readBytes.array(), "UTF-8");
+
+            readBytes.flip();
+            assertTrue(expectedBytes.equals(readBytes));
+        } finally {
+            fis.close();
+        }
+    }
 //
 //    public void testIdleOnlineSnapshot() throws Exception
 //    {
@@ -1422,7 +1427,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         //project.addAllDefaults();
 
         config =
-            new CatalogChangeSingleProcessServer("sysproc-threesites.jar", 3,
+            new CatalogChangeSingleProcessServer("tpcc.jar", 3,
                                                  BackendTarget.NATIVE_EE_JNI);
         boolean success = config.compile(project);
         assert(success);
@@ -1430,4 +1435,6 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
 
         return builder;
     }
+    
+    
 }
