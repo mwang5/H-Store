@@ -68,7 +68,6 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
     @Override
     public void setUp()
     {
-        deleteTestFiles();
         super.setUp();
         DefaultSnapshotDataTarget.m_simulateFullDiskWritingChunk = false;
         DefaultSnapshotDataTarget.m_simulateFullDiskWritingHeader = false;
@@ -78,7 +77,6 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
     @Override
     public void tearDown()
     {
-        deleteTestFiles();
         try {
             super.tearDown();
         } catch (InterruptedException e) {
@@ -414,7 +412,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
 
     /*
     * Also does some basic smoke tests
-    * of @SnapshotStatus, @SnapshotScan and @SnapshotDelete
+    * of @SnapshotSave, @SnapshotScan
     */
     public void testSnapshotSave() throws Exception
     {
@@ -476,7 +474,6 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         } while (scanResults[0].advanceRow());
         assertEquals(1, count);
 
-
         FilenameFilter cleaner = new FilenameFilter()
         {
             public boolean accept(File dir, String file)
@@ -528,9 +525,6 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
             }
         }
 
-        // Now, try the save again and verify that we fail (since all the save
-        // files will still exist. This will return one entry per table
-        // per host
         expected_entries =
             ((total_tables - replicated) * num_hosts) + replicated;
         try
@@ -550,55 +544,8 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
                 assertTrue(results[0].getString("ERR_MSG").contains("SAVE FILE ALREADY EXISTS"));
             }
         }
-
-//        VoltTable deleteResults[] =
-//            client.callProcedure(
-//                "@SnapshotDelete",
-//                new String[] {TMPDIR},
-//                new String[]{TESTNONCE}).getResults();
-//        assertNotNull(deleteResults);
-//        assertEquals( 1, deleteResults.length);
-//        assertEquals( 9, deleteResults[0].getColumnCount());
-//        assertEquals( 8, deleteResults[0].getRowCount());
-//        tmp_files = tmp_dir.listFiles(cleaner);
-//        assertEquals( 0, tmp_files.length);
-//
-//        validateSnapshot(false);
-    }
-
-    private void generateAndValidateTextFile(StringBuilder expectedText, boolean csv) throws Exception {
-        String args[] = new String[] {
-                TESTNONCE,
-               "--dir",
-               TMPDIR,
-               "--table",
-               "REPLICATED_TESTER",
-               "--type",
-               csv ? "CSV" : "TSV",
-               "--outdir",
-               TMPDIR
-        };
-        SnapshotConverter.main(args);
-        FileInputStream fis = new FileInputStream(
-                TMPDIR + File.separator + "REPLICATED_TESTER" + (csv ? ".csv" : ".tsv"));
-        try {
-            int filesize = (int)fis.getChannel().size();
-            ByteBuffer expectedBytes = ByteBuffer.wrap(expectedText.toString().getBytes("UTF-8"));
-            ByteBuffer readBytes = ByteBuffer.allocate(filesize);
-            while (readBytes.hasRemaining()) {
-                int read = fis.getChannel().read(readBytes);
-                if (read == -1) {
-                    throw new EOFException();
-                }
-            }
-            // this throws an exception on failure
-            new String(readBytes.array(), "UTF-8");
-
-            readBytes.flip();
-            assertTrue(expectedBytes.equals(readBytes));
-        } finally {
-            fis.close();
-        }
+        
+        /*snapshotdelete was not implemented*/
     }
 
     public void testIdleOnlineSnapshot() throws Exception
@@ -609,7 +556,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         int num_replicated_items_per_chunk = 100;
         int num_replicated_chunks = 10;
         int num_partitioned_items_per_chunk = 120;
-        int num_partitioned_chunks = 10;
+        int num_partitioned_chunks = 1;
 
         loadLargeReplicatedTable(client, "REPLICATED_TESTER",
                                  num_replicated_items_per_chunk,
@@ -619,25 +566,10 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
                                   num_partitioned_chunks);
 
         client.callProcedure("@SnapshotSave", TMPDIR,
-                                       TESTNONCE, (byte)1);
-
+                                       TESTNONCE, (byte)0);
+        this.validateSnapshot(true);
         Thread.sleep(700);
-
-//        /*
-//        * Check that snapshot status returns a reasonable result
-//        */
-//        VoltTable statusResults[] = client.callProcedure("@SnapshotStatus").getResults();
-//        assertNotNull(statusResults);
-//        assertEquals( 1, statusResults.length);
-//        assertEquals( 13, statusResults[0].getColumnCount());
-//        assertEquals( 7, statusResults[0].getRowCount());
-//        assertTrue(statusResults[0].advanceRow());
-//        assertTrue(TMPDIR.equals(statusResults[0].getString("PATH")));
-//        assertTrue(TESTNONCE.equals(statusResults[0].getString("NONCE")));
-//        assertFalse( 0 == statusResults[0].getLong("END_TIME"));
-//        assertTrue("SUCCESS".equals(statusResults[0].getString("RESULT")));
-//
-//        validateSnapshot(true);
+        /*SnapshotStatus was not implemented*/
     }
 
 //    public void testSaveAndRestoreReplicatedTable()
