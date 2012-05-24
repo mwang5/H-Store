@@ -49,7 +49,7 @@ import edu.brown.hstore.HStore;
 */
 public class TestSaveRestoreSysprocSuite extends RegressionSuite {
 
-    private static final String TMPDIR = "/tmp/s";
+    private static final String TMPDIR = "/tmp";
     private static final String TESTNONCE = "testnonce";
     private static final int ALLOWEXPORT = 0;
 
