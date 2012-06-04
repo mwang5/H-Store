@@ -1063,6 +1063,11 @@ public class HStoreSite implements VoltProcedureListener.Handler, Shutdownable, 
         // BASE PARTITION
         // -------------------------------
         
+        // Simple sanity check to make sure that we're not being told a bad partition
+        if (base_partition < 0 || base_partition >= this.local_partitions_arr.length) {
+            base_partition = -1;
+        }
+        
         // DB2-style Transaction Redirection
         if (base_partition != -1 && hstore_conf.site.exec_db2_redirects) {
             if (d) LOG.debug(String.format("Using embedded base partition from %s request [basePartition=%d]",
@@ -1860,7 +1865,8 @@ public class HStoreSite implements VoltProcedureListener.Handler, Shutdownable, 
         if (status != Status.ABORT_RESTART && hstore_conf.site.exec_db2_redirects) {
             Histogram<Integer> touched = orig_ts.getTouchedPartitions();
             Collection<Integer> most_touched = touched.getMaxCountValues();
-            assert(most_touched != null);
+            assert(most_touched != null) :
+                "Failed to get most touched partition for " + orig_ts + "\n" + touched;
             
             // HACK: We should probably decrement the base partition by one 
             // so that we only consider where they actually executed queries
