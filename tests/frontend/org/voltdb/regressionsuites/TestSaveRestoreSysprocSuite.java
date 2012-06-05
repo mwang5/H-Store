@@ -26,9 +26,11 @@ package org.voltdb.regressionsuites;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FilenameFilter;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import org.voltdb.BackendTarget;
+import org.voltdb.DefaultSnapshotDataTarget;
 import org.voltdb.VoltTable;
 import org.voltdb.VoltTable.ColumnInfo;
 import org.voltdb.VoltType;
@@ -38,7 +40,9 @@ import org.voltdb.catalog.Database;
 import org.voltdb.catalog.Site;
 import org.voltdb.catalog.Table;
 import org.voltdb.client.Client;
+import org.voltdb.client.ProcCallException;
 import org.voltdb.utils.SnapshotVerifier;
+import org.voltdb.utils.SnapshotConverter;
 import org.voltdb.regressionsuites.saverestore.SaveRestoreTestProjectBuilder;
 
 import edu.brown.catalog.CatalogUtil;
@@ -53,53 +57,78 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
     private static final String TESTNONCE = "testnonce";
     private static final int ALLOWEXPORT = 0;
 
-    public TestSaveRestoreSysprocSuite(String name) {
+    public TestSaveRestoreSysprocSuite(String name) 
+    {
         super(name);
     }
 
     @Override
-    public void setUp()
+    public void setUp() 
     {
-//        deleteTestFiles();
+        deleteTestFiles();
         super.setUp();
-//        DefaultSnapshotDataTarget.m_simulateFullDiskWritingChunk = false;
-//        DefaultSnapshotDataTarget.m_simulateFullDiskWritingHeader = false;
-//        org.voltdb.sysprocs.SnapshotRegistry.clear();
+        DefaultSnapshotDataTarget.m_simulateFullDiskWritingChunk = false;
+        DefaultSnapshotDataTarget.m_simulateFullDiskWritingHeader = false;
     }
 
     @Override
-    public void tearDown()
+    public void tearDown() throws Exception
     {
-        try {
-            super.tearDown();
-        } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+        deleteTestFiles();
+        super.tearDown();
     }
 
-//    private void deleteTestFiles()
-//    {
-//        FilenameFilter cleaner = new FilenameFilter()
-//        {
-//            public boolean accept(File dir, String file)
-//            {
-//                return file.startsWith(TESTNONCE) ||
-//                file.endsWith(".vpt") ||
-//                file.endsWith(".digest") ||
-//                file.endsWith(".tsv") ||
-//                file.endsWith(".csv");
-//            }
-//        };
-//
-//        File tmp_dir = new File(TMPDIR);
-//        File[] tmp_files = tmp_dir.listFiles(cleaner);
-//        for (File tmp_file : tmp_files)
-//        {
-//            tmp_file.delete();
-//        }
-//    }
+    private void deleteTestFiles() 
+    {
+        FilenameFilter cleaner = new FilenameFilter()
+        {
+            public boolean accept(File dir, String file)
+            {
+                return file.startsWith(TESTNONCE) ||
+                file.endsWith(".vpt") ||
+                file.endsWith(".digest") ||
+                file.endsWith(".tsv") ||
+                file.endsWith(".csv");
+            }
+        };
 
+        File tmp_dir = new File(TMPDIR);
+        File[] tmp_files = tmp_dir.listFiles(cleaner);
+        for (File tmp_file : tmp_files)
+        {
+            tmp_file.delete();
+        }
+    }
+    
+    private void corruptTestFiles(java.util.Random r) throws Exception
+    {
+        FilenameFilter cleaner = new FilenameFilter()
+        {
+            public boolean accept(File dir, String file)
+            {
+                return file.startsWith(TESTNONCE);
+            }
+        };
+
+        File tmp_dir = new File(TMPDIR);
+        File[] tmp_files = tmp_dir.listFiles(cleaner);
+        int tmpIndex = r.nextInt(tmp_files.length);
+        byte corruptValue[] = new byte[1];
+        r.nextBytes(corruptValue);
+        java.io.RandomAccessFile raf = new java.io.RandomAccessFile( tmp_files[tmpIndex], "rw");
+        int corruptPosition = r.nextInt((int)raf.length());
+        raf.seek(corruptPosition);
+        byte currentValue = raf.readByte();
+        while (currentValue == corruptValue[0]) {
+            r.nextBytes(corruptValue);
+        }
+        System.out.println("Corrupting file " + tmp_files[tmpIndex].getName() +
+                " at byte " + corruptPosition + " with value " + corruptValue[0]);
+        raf.seek(corruptPosition);
+        raf.write(corruptValue);
+        raf.close();
+    }
+    
     private VoltTable createReplicatedTable(int numberOfItems,
                                             int indexBase,
                                             StringBuilder sb,
@@ -182,8 +211,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         return repl_table;
     }
 
-    private VoltTable createPartitionedTable(int numberOfItems,
-                                             int indexBase)
+    private VoltTable createPartitionedTable(int numberOfItems, int indexBase)
     {
         VoltTable partition_table =
                 new VoltTable(new ColumnInfo("PT_ID", VoltType.INTEGER),
@@ -202,8 +230,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         return partition_table;
     }
 
-    private VoltTable[] loadTable(Client client, String tableName,
-                                  VoltTable table)
+    private VoltTable[] loadTable(Client client, String tableName, VoltTable table)
     {
         VoltTable[] results = null;
         try
@@ -237,6 +264,54 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         }
     }
 
+    private VoltTable[] saveTables(Client client)
+    {
+        VoltTable[] results = null;
+        try
+        {
+            results = client.callProcedure("@SnapshotSave", TMPDIR,
+                                           TESTNONCE,
+                                           (byte)1).getResults();
+        }
+        catch (Exception ex)
+        {
+            ex.printStackTrace();
+            fail("SnapshotSave exception: " + ex.getMessage());
+        }
+        return results;
+    }
+    
+    private void checkTable(Client client, String tableName, 
+            String orderByCol, int expectedRows)
+    {
+        if (expectedRows > 200000)
+        {
+            System.out.println("Table too large to retrieve with select *");
+            System.out.println("Skipping integrity check");
+        }
+        VoltTable result = null;
+        try
+        {
+            result = client.callProcedure("SaveRestoreSelect", tableName).getResults()[0];
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        final int rowCount = result.getRowCount();
+        assertEquals(expectedRows, rowCount);
+
+        int i = 0;
+        while (result.advanceRow())
+        {
+            assertEquals(i, result.getLong(0));
+            assertEquals("name_" + i, result.getString(1));
+            assertEquals(i, result.getLong(2));
+            assertEquals(new Double(i), result.getDouble(3));
+            ++i;
+        }
+    }
+    
     private void loadLargePartitionedTable(Client client, String tableName,
                                           int itemsPerChunk, int numChunks)
     {
@@ -273,6 +348,53 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         }
     }
 
+    public void testSaveRestoreJumboRows()
+    throws IOException, InterruptedException, ProcCallException
+    {
+        System.out.println("Starting testSaveRestoreJumboRows.");
+        Client client = getClient();
+        byte firstStringBytes[] = new byte[1048576];
+        java.util.Arrays.fill(firstStringBytes, (byte)'c');
+        String firstString = new String(firstStringBytes, "UTF-8");
+        byte secondStringBytes[] = new byte[1048564];
+        java.util.Arrays.fill(secondStringBytes, (byte)'a');
+        String secondString = new String(secondStringBytes, "UTF-8");
+
+        VoltTable results[] = client.callProcedure("JumboInsert", 0, firstString, secondString).getResults();
+        firstString = null;
+        secondString = null;
+
+        assertEquals(results.length, 1);
+        assertEquals( 1, results[0].asScalarLong());
+
+        results = client.callProcedure("JumboSelect", 0).getResults();
+        assertEquals(results.length, 1);
+        assertTrue(results[0].advanceRow());
+        assertTrue(java.util.Arrays.equals( results[0].getStringAsBytes(1), firstStringBytes));
+        assertTrue(java.util.Arrays.equals( results[0].getStringAsBytes(2), secondStringBytes));
+
+        saveTables(client);
+        validateSnapshot(true);
+
+        // Kill and restart all the execution sites.
+        m_config.shutDown();
+
+        releaseClient(client);
+        // Kill and restart all the execution sites.
+        m_config.shutDown();
+        m_config.startUp();
+
+        client = getClient();
+
+//        client.callProcedure("@SnapshotRestore", TMPDIR, TESTNONCE, ALLOWEXPORT);
+//
+//        results = client.callProcedure("JumboSelect", 0).getResults();
+//        assertEquals(results.length, 1);
+//        assertTrue(results[0].advanceRow());
+//        assertTrue(java.util.Arrays.equals( results[0].getStringAsBytes(1), firstStringBytes));
+//        assertTrue(java.util.Arrays.equals( results[0].getStringAsBytes(2), secondStringBytes));
+    }
+    
     /*
     * Also does some basic smoke tests
     * of @SnapshotSave, @SnapshotScan
@@ -308,7 +430,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
 
         scanResults = client.callProcedure("@SnapshotScan", "/doesntexist").getResults();
         assertNotNull(scanResults);
-        assertEquals(3, scanResults[1].getRowCount());
+        assertEquals(1, scanResults[1].getRowCount());
         assertTrue( scanResults[1].advanceRow());
         assertTrue( "FAILURE".equals(scanResults[1].getString("RESULT")));
 
@@ -318,17 +440,6 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         assertEquals( 8, scanResults[0].getColumnCount());
         assertTrue(scanResults[1].getRowCount() >= 1);
         assertTrue(scanResults[1].advanceRow());
-        /*
-        * We can't assert that all snapshot files are generated by this test.
-        * There might be leftover snapshot files from other runs.
-        */
-        int count = 0;
-        do {
-            if (TMPDIR.equals(scanResults[1].getString("PATH"))) {
-                count++;
-            }
-        } while (scanResults[0].advanceRow());
-        assertEquals(1, count);
 
         FilenameFilter cleaner = new FilenameFilter()
         {
@@ -348,7 +459,6 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         assertEquals( 8, scanResults[0].getColumnCount());
         assertTrue(scanResults[1].getRowCount() >= 1);
         assertTrue(scanResults[1].advanceRow());
-        count = 0;
 
         // Instead of something exhaustive, let's just make sure that we get
         // the number of result rows corresponding to the number of ExecutionSites
@@ -421,7 +531,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
           project.addAllDefaults();
           
         config =
-            new LocalSingleProcessServer("sysproc-threesites.jar", 3,
+            new LocalSingleProcessServer("sysproc-threesites.jar", 1,
                                                  BackendTarget.NATIVE_EE_JNI);
         boolean success = config.compile(project);
         assert(success);

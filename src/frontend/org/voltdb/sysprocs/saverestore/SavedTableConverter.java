@@ -32,9 +32,8 @@ import org.voltdb.utils.VoltTypeUtil;
 
 public abstract class SavedTableConverter
 {
-
-    public static Boolean needsConversion(VoltTable inputTable,
-                                          Table outputTableSchema) {
+    public static Boolean needsConversion(VoltTable inputTable, Table outputTableSchema) 
+    {
         for (int ii = 0; ii < inputTable.getColumnCount(); ii++) {
             final String name = inputTable.getColumnName(ii);
             final VoltType type = inputTable.getColumnType(ii);
@@ -55,9 +54,7 @@ public abstract class SavedTableConverter
         return false;
     }
 
-    public static VoltTable convertTable(VoltTable inputTable,
-                                         Table outputTableSchema)
-    throws VoltTypeException
+    public static VoltTable convertTable(VoltTable inputTable, Table outputTableSchema) throws VoltTypeException
     {
         VoltTable new_table =
             CatalogUtil.getVoltTable(outputTableSchema);

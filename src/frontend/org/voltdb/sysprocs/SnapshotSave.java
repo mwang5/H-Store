@@ -181,7 +181,7 @@ public class SnapshotSave extends VoltSystemProcedure
 
                 if (SnapshotSiteProcessor.ExecutionSitesCurrentlySnapshotting.get() != -1) {
                     result.addRow(
-                                  context.getSite().getHost().getId(),
+                                  context.getHost().getId(),
                                   hostname,
                                   "",
                                   "FAILURE",
@@ -194,7 +194,7 @@ public class SnapshotSave extends VoltSystemProcedure
                     File saveFilePath =
                         SnapshotUtil.constructFileForTable(table, file_path, file_nonce,
                                               context.getSite().getHost().getTypeName());
-                    LOG.trace("Host ID " + context.getSite().getHost().getTypeName() +
+                    LOG.trace("Host ID " + context.getHost().getId() +
                                     " table: " + table.getTypeName() +
                                     " to path: " + saveFilePath);
                     String file_valid = "SUCCESS";

@@ -35,23 +35,19 @@ public class ClusterSaveFileState
         int ii = 0;
         result_columns[ii++] = new ColumnInfo("CURRENT_HOST_ID", VoltType.INTEGER);
         result_columns[ii++] = new ColumnInfo("CURRENT_HOSTNAME", VoltType.STRING);
-        result_columns[ii++] =
-                new ColumnInfo("ORIGINAL_HOST_ID", VoltType.INTEGER);
-        result_columns[ii++] =
-            new ColumnInfo("ORIGINAL_HOSTNAME", VoltType.STRING);
+        result_columns[ii++] = new ColumnInfo("ORIGINAL_HOST_ID", VoltType.INTEGER);
+        result_columns[ii++] = new ColumnInfo("ORIGINAL_HOSTNAME", VoltType.STRING);
         result_columns[ii++] = new ColumnInfo("CLUSTER", VoltType.STRING);
         result_columns[ii++] = new ColumnInfo("DATABASE", VoltType.STRING);
         result_columns[ii++] = new ColumnInfo("TABLE", VoltType.STRING);
         result_columns[ii++] = new ColumnInfo("IS_REPLICATED", VoltType.STRING);
         result_columns[ii++] = new ColumnInfo("PARTITION", VoltType.INTEGER);
-        result_columns[ii++] = new ColumnInfo("TOTAL_PARTITIONS",
-                                           VoltType.INTEGER);
+        result_columns[ii++] = new ColumnInfo("TOTAL_PARTITIONS", VoltType.INTEGER);
 
         return new VoltTable(result_columns);
     }
 
-    private TableSaveFileState constructTableState(
-            VoltTableRow row)
+    private TableSaveFileState constructTableState(VoltTableRow row)
     {
         TableSaveFileState table_state = null;
         String table_name = row.getString("TABLE");
@@ -71,8 +67,7 @@ public class ClusterSaveFileState
         return table_state;
     }
 
-    public ClusterSaveFileState(VoltTable saveFileState, int allowExport)
-        throws IOException
+    public ClusterSaveFileState(VoltTable saveFileState, int allowExport) throws IOException
     {
         if (saveFileState.getRowCount() == 0)
         {
@@ -83,9 +78,8 @@ public class ClusterSaveFileState
         m_clusterName = a_row.getString("CLUSTER");
         m_databaseName = a_row.getString("DATABASE");
         m_allowExport = allowExport;
-
-
         m_tableStateMap = new HashMap<String, TableSaveFileState>();
+        
         while (saveFileState.advanceRow())
         {
             checkConsistency(saveFileState); // throws if inconsistent

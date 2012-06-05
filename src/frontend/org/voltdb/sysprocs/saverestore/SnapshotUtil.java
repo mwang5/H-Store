@@ -360,10 +360,10 @@ public class SnapshotUtil {
     }
 
     /**
-     * Returns a detailed report and a boolean indicating whether the snapshot can be successfully loaded
-     * @param snapshotTime
-     * @param snapshot
-     */
+    * Returns a detailed report and a boolean indicating whether the snapshot can be successfully loaded
+    * @param snapshotTime
+    * @param snapshot
+    */
     public static Pair<Boolean, String> generateSnapshotReport(Long snapshotTime, Snapshot snapshot) {
         CharArrayWriter caw = new CharArrayWriter();
         PrintWriter pw = new PrintWriter(caw);
@@ -381,8 +381,8 @@ public class SnapshotUtil {
             boolean inconsistent = false;
 
             /*
-             * Iterate over the digests and ensure that they all contain the same list of tables
-             */
+            * Iterate over the digests and ensure that they all contain the same list of tables
+            */
             Map<Integer, List<Integer>> inconsistentDigests = new HashMap<Integer, List<Integer>>();
             for (int ii = 0; ii < snapshot.m_digests.size(); ii++) {
                 inconsistentDigests.put( ii, new ArrayList<Integer>());
@@ -400,8 +400,8 @@ public class SnapshotUtil {
             }
 
             /*
-             * Summarize what was inconsistent/consistent
-             */
+            * Summarize what was inconsistent/consistent
+            */
             if (!inconsistent) {
                 for (int ii = 0; ii < snapshot.m_digests.size(); ii++) {
                     pw.println(indentString + snapshot.m_digests.get(ii).getPath());
@@ -422,8 +422,8 @@ public class SnapshotUtil {
             }
 
             /*
-             * Print the list of tables found in the digests
-             */
+            * Print the list of tables found in the digests
+            */
             indentString = indentString.substring(1);
             pw.print(indentString + "Tables: ");
             int ii = 0;
@@ -445,8 +445,8 @@ public class SnapshotUtil {
         }
 
         /*
-         * Check that the total partition count is the same in every table file
-         */
+        * Check that the total partition count is the same in every table file
+        */
         Integer totalPartitionCount = null;
         indentString = indentString + "\t";
         for (Map.Entry<String, TableFiles> entry : snapshot.m_tableFiles.entrySet()) {
@@ -466,17 +466,17 @@ public class SnapshotUtil {
         }
 
         /*
-         * Now check that each individual table has enough information to be restored.
-         * It is possible for a valid partition set to be available and still have a restore
-         * fail because the restore plan loads a save file with a corrupt partition.
-         */
+        * Now check that each individual table has enough information to be restored.
+        * It is possible for a valid partition set to be available and still have a restore
+        * fail because the restore plan loads a save file with a corrupt partition.
+        */
         TreeSet<String> consistentTablesSeen = new TreeSet<String>();
         for (Map.Entry<String, TableFiles> entry : snapshot.m_tableFiles.entrySet()) {
             TableFiles tableFiles = entry.getValue();
 
             /*
-             * Calculate the set of visible partitions not corrupted partitions
-             */
+            * Calculate the set of visible partitions not corrupted partitions
+            */
             TreeSet<Integer> partitionsAvailable = new TreeSet<Integer>();
             int kk = 0;
             for (Set<Integer> validPartitionIds : tableFiles.m_validPartitionIds) {
@@ -486,8 +486,8 @@ public class SnapshotUtil {
             }
 
             /*
-             * Ensure the correct range of partition ids is present
-             */
+            * Ensure the correct range of partition ids is present
+            */
             boolean partitionsPresent = false;
             if ((partitionsAvailable.size() == (tableFiles.m_isReplicated ? 1 : totalPartitionCount)) &&
                 (partitionsAvailable.first() == 0) &&
@@ -496,8 +496,8 @@ public class SnapshotUtil {
             }
 
             /*
-             * Report if any of the files have corrupt partitions
-             */
+            * Report if any of the files have corrupt partitions
+            */
             boolean hasCorruptPartitions = false;
             for (Set<Integer> corruptIds : tableFiles.m_corruptParititionIds) {
                 if (!corruptIds.isEmpty()) {
@@ -513,9 +513,9 @@ public class SnapshotUtil {
             pw.println(indentString + "Corrupt partitions present: " + hasCorruptPartitions);
 
             /*
-             * Print information about individual files such as the partitions present and whether
-             * they are corrupted
-             */
+            * Print information about individual files such as the partitions present and whether
+            * they are corrupted
+            */
             pw.println(indentString + "Files: ");
             indentString = indentString + "\t";
             for (int ii = 0; ii < tableFiles.m_files.size(); ii++) {
@@ -575,24 +575,24 @@ public class SnapshotUtil {
         }
 
         /*
-         * Tack on a summary at the beginning to indicate whether a restore is guaranteed to succede
-         * with this file set.
-         */
+        * Tack on a summary at the beginning to indicate whether a restore is guaranteed to succede
+        * with this file set.
+        */
         if (snapshotConsistent) {
             return Pair.of( true, "Snapshot valid\n" + caw.toString());
         } else {
             StringBuilder sb = new StringBuilder(8192);
             sb.append("Snapshot corrupted\n").append(missingTables).append(caw.toCharArray());
-            return Pair.of( false,  sb.toString());
+            return Pair.of( false, sb.toString());
         }
     }
 
     /**
      * Generates a Filename to the snapshot file for the given table.
-     * @param table
-     * @param fileNonce
-     * @param hostId
-     */
+    * @param table
+    * @param fileNonce
+    * @param hostId
+    */
     public static final String constructFilenameForTable(Table table,
                                                          String fileNonce,
                                                          String hostId)
@@ -628,24 +628,22 @@ public class SnapshotUtil {
 
     public static final List<Table> getTablesToSave(Database database)
     {
+        CatalogMap<Table> all_tables = database.getTables();
         ArrayList<Table> my_tables = new ArrayList<Table>();
-        for (Table table : database.getTables())
+        for (Table table : all_tables)
         {
-            if (table.getSystable() || table.getMapreduce()) continue;
-            
-//            // Make a list of all non-materialized, non-export only tables
-//            if ((table.getMaterializer() != null) ||
-//                    (CatalogUtil.isTableExportOnly(database, table)))
-//            {
-//                continue;
-//            }
+            // Make a list of all non-materialized, non-export only tables
+            if ((table.getMaterializer() != null))
+            {
+                continue;
+            }
             my_tables.add(table);
         }
         return my_tables;
     }
 
-    public static final int[] getPartitionsOnHost(
-            SystemProcedureExecutionContext c, Host h) {
+    public static final int[] getPartitionsOnHost(SystemProcedureExecutionContext c, Host h) 
+    {
         Collection<Partition> results = CatalogUtil.getPartitionsForHost(h);
         final int retval[] = new int[results.size()];
         int ii = 0;

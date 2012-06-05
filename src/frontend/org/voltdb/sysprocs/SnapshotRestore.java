@@ -80,9 +80,9 @@ public class SnapshotRestore extends VoltSystemProcedure
 
     private static final int DEP_restoreScan = (int)
             SysProcFragmentId.PF_restoreScan | DtxnConstants.MULTIPARTITION_DEPENDENCY;
-        private static final int DEP_restoreScanResults = (int)
+    private static final int DEP_restoreScanResults = (int)
             SysProcFragmentId.PF_restoreScanResults;
-
+    
     private static HashSet<String>  m_initializedTableSaveFiles = new HashSet<String>();
     private static ArrayDeque<TableSaveFile> m_saveFiles = new ArrayDeque<TableSaveFile>();
 
@@ -95,22 +95,18 @@ public class SnapshotRestore extends VoltSystemProcedure
         if (!m_initializedTableSaveFiles.add(tableName)) {
             return;
         }
-        CatalogType c = getCatalog(m_extor);
-
+        HStore.instance().getCatalog();
         for (int originalHostId : originalHostIds) {
             final File f = getSaveFileForPartitionedTable( filePath, fileNonce, tableName, originalHostId);
             m_saveFiles.offer(
                     getTableSaveFile(
                             f,
-                            CatalogUtil.getNumberOfPartitions(c.getCatalog()) * 4, 
+                            CatalogUtil.getNumberOfPartitions(HStore.instance().getCatalog()) * 4, 
                             //org.voltdb.VoltDB.instance().getLocalSites().size() * 4,
                             relevantPartitionIds));
             assert(m_saveFiles.peekLast().getCompleted());
 
         }
-    }
-    private static Catalog getCatalog(PartitionExecutor e){
-        return e.getCatalogSite().getCatalog();
     }
     
     private static synchronized boolean hasMoreChunks() {
@@ -178,7 +174,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                                   this);
         m_siteId = site.getSiteId();
         m_hostId = site.getHostId();
-        m_extor = site;
+        m_exor = site;
     }
 
     @Override
@@ -941,8 +937,7 @@ public class SnapshotRestore extends VoltSystemProcedure
         // LoadMultipartitionTable.  Consider ways to consolidate later
         Map<Integer, Integer> sites_to_partitions =
             new HashMap<Integer, Integer>();
-        CatalogType catalog_c = getCatalog(m_extor);
-        for (Site site : CatalogUtil.getCluster(catalog_c.getCatalog()).getSites())
+        for (Site site : CatalogUtil.getCluster(HStore.instance().getCatalog()).getSites())
         {
             for (Partition partition : site.getPartitions()) {
                 sites_to_partitions.put(site.getId(),
@@ -1110,7 +1105,7 @@ public class SnapshotRestore extends VoltSystemProcedure
         return this.database.getTables().get(tableName);
     }
 
-    private static PartitionExecutor m_extor;
+    private PartitionExecutor m_exor;
     private int m_siteId;
     private int m_hostId;
     private static volatile String m_filePath;

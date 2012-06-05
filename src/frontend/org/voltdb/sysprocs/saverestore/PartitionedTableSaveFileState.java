@@ -19,6 +19,7 @@ package org.voltdb.sysprocs.saverestore;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -170,16 +171,16 @@ public class PartitionedTableSaveFileState extends TableSaveFileState
     
             Cluster catalog_clus = CatalogUtil.getCluster(HStore.instance().getCatalog());
             Host[] hosts_value = catalog_clus.getHosts().values();
-            List<Integer> sitesAtHost = new ArrayList<Integer>();
+            Collection<Integer> sitesAtHost = new ArrayList<Integer>();
             for(int j=0; j<hosts_value.length; j++){
                 if (hosts_value[j].getId() == nextHost) {
                     List<Site> siteList = CatalogUtil.getSitesForHost(hosts_value[j]);
-                    
                     for (Site site: siteList) {
                         sitesAtHost.add(site.getId());
                     }   
                 }
             }
+
 //            List<Integer> sitesAtHost =
 //                    VoltDB.instance().getCatalogContext().siteTracker.
 //                    getLiveExecutionSitesForHost(nextHost);
@@ -264,8 +265,7 @@ public class PartitionedTableSaveFileState extends TableSaveFileState
     /**
      * Set of original PartitionId
      */
-    private final TreeSet<Integer> m_partitionsSeen =
-          new TreeSet<Integer>();
+    private final TreeSet<Integer> m_partitionsSeen = new TreeSet<Integer>();
 
     /**
      * Map from a current host id to a pair of an original

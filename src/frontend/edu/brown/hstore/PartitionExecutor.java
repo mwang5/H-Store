@@ -47,9 +47,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -678,7 +678,6 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                     final PotentialSnapshotWorkMessage msg = new PotentialSnapshotWorkMessage();
                     @Override
                     public void run() {
-                        assert(msg!=null);
                         //PartitionExecutor.this.work_queue.add(msg);
                     }
                 });
@@ -1325,7 +1324,6 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
      */
     public void queueWork(AbstractTransaction ts, FragmentTaskMessage task) {
         assert(ts.isInitialized());
-        assert(task!=null);
         this.work_queue.add(task);
         if (d) LOG.debug(String.format("%s - Added distributed txn %s to front of partition %d work queue [size=%d]",
                                        ts, task.getClass().getSimpleName(), this.partitionId, this.work_queue.size()));
@@ -1339,7 +1337,6 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
     public void queueFinish(AbstractTransaction ts, Status status) {
         assert(ts.isInitialized());
         FinishTaskMessage task = ts.getFinishTaskMessage(status);
-        assert(task != null);
         this.work_queue.add(task);
         if (d) LOG.debug(String.format("%s - Added distributed %s to front of partition %d work queue [size=%d]",
                                        ts, task.getClass().getSimpleName(), this.partitionId, this.work_queue.size()));
@@ -1391,7 +1388,6 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                         
                     } else {
                         // this.work_queue.addFirst(task);
-                        assert(task != null);
                         this.work_queue.add(task);
                     }
                 }
@@ -2343,7 +2339,6 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
         
         return (results);
     }
-    
     /**
      * 
      * @param fresponse
@@ -3273,7 +3268,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
         m_snapshotter.initiateSnapshots(ee, tasks);
     }
 
-    public Collection<Exception> completeSnapshotWork() throws InterruptedException {
+    public HashSet<Exception> completeSnapshotWork() throws InterruptedException {
         return m_snapshotter.completeSnapshotWork(ee);
     }
     

@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.voltdb.ParameterSet;
+import org.voltdb.VoltDB;
 import org.voltdb.VoltTableRow;
 import org.voltdb.VoltSystemProcedure.SynthesizedPlanFragment;
 import org.voltdb.catalog.Cluster;
@@ -69,15 +70,19 @@ public class ReplicatedTableSaveFileState extends TableSaveFileState
     {            
         Cluster catalog_clus = CatalogUtil.getCluster(HStore.instance().getCatalog());
         Host[] hosts_value = catalog_clus.getHosts().values();
-        for (int hostId : m_hostsWithThisTable) {        
-            List<Site> siteList = CatalogUtil.getSitesForHost(hosts_value[hostId-1]);
-            for (Site i : siteList) {
-                m_sitesWithThisTable.add(i.getId());
-            }      
-
+//        for (int hostId : m_hostsWithThisTable) {  
+//            for (final Host h : hosts_value) {
+//                if (h.getId() == hostId){
+            
+                    List<Site> siteList = CatalogUtil.getSitesForHost(hosts_value[0]);
+                    for (Site i : siteList) {
+                            m_sitesWithThisTable.add(i.getId());
+//                    }      
+//                }
 //            m_sitesWithThisTable.addAll(VoltDB.instance().getCatalogContext().
 //                                        siteTracker.getLiveExecutionSitesForHost(hostId));
-        }
+//        }
+                    }
 
         SynthesizedPlanFragment[] restore_plan = null;
         if (catalogTable.getIsreplicated())
