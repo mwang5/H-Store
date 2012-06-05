@@ -24,11 +24,15 @@
 package org.voltdb.regressionsuites;
 
 import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+
 import org.voltdb.BackendTarget;
 import org.voltdb.DefaultSnapshotDataTarget;
 import org.voltdb.VoltTable;
@@ -43,6 +47,7 @@ import org.voltdb.client.Client;
 import org.voltdb.client.ProcCallException;
 import org.voltdb.utils.SnapshotVerifier;
 import org.voltdb.utils.SnapshotConverter;
+import org.voltdb.regressionsuites.saverestore.CatalogChangeSingleProcessServer;
 import org.voltdb.regressionsuites.saverestore.SaveRestoreTestProjectBuilder;
 
 import edu.brown.catalog.CatalogUtil;
@@ -127,6 +132,12 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         raf.seek(corruptPosition);
         raf.write(corruptValue);
         raf.close();
+    }
+    
+    private VoltTable createReplicatedTable(int numberOfItems,
+            int indexBase,
+            StringBuilder sb) {
+        return createReplicatedTable(numberOfItems, indexBase, sb, false);
     }
     
     private VoltTable createReplicatedTable(int numberOfItems,
@@ -418,7 +429,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
 
         VoltTable[] results = null;
         results = client.callProcedure("@SnapshotSave", TMPDIR, TESTNONCE, (byte)1).getResults();
-        assert(results != null);
+        validateSnapshot(true);
 
         VoltTable scanResults[] = client.callProcedure("@SnapshotScan", new Object[] { null }).getResults();
         assertNotNull(scanResults);
@@ -497,7 +508,6 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         {
             results = client.callProcedure("@SnapshotSave", TMPDIR,
                                            TESTNONCE, (byte)1).getResults(); 
-            assert(results != null);
         }
        
         catch (Exception ex)
@@ -505,6 +515,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
             ex.printStackTrace();
             fail("SnapshotSave exception: " + ex.getMessage());
         }
+        assertEquals(expected_entries, results[0].getRowCount());
         while (results[0].advanceRow())
         {
             if (!tmp_files[0].getName().contains(results[0].getString("TABLE"))) {
@@ -515,6 +526,226 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         
         /*snapshotdelete was not implemented*/
     }
+    private void generateAndValidateTextFile(StringBuilder expectedText, boolean csv) throws Exception {
+        String args[] = new String[] {
+                TESTNONCE,
+               "--dir",
+               TMPDIR,
+               "--table",
+               "REPLICATED_TESTER",
+               "--type",
+               csv ? "CSV" : "TSV",
+               "--outdir",
+               TMPDIR
+        };
+        SnapshotConverter.main(args);
+        FileInputStream fis = new FileInputStream(
+                TMPDIR + File.separator + "REPLICATED_TESTER" + (csv ? ".csv" : ".tsv"));
+        try {
+            int filesize = (int)fis.getChannel().size();
+            ByteBuffer expectedBytes = ByteBuffer.wrap(expectedText.toString().getBytes("UTF-8"));
+            ByteBuffer readBytes = ByteBuffer.allocate(filesize);
+            while (readBytes.hasRemaining()) {
+                int read = fis.getChannel().read(readBytes);
+                if (read == -1) {
+                    throw new EOFException();
+                }
+            }
+            // this throws an exception on failure
+            new String(readBytes.array(), "UTF-8");
+
+            readBytes.flip();
+            assertTrue(expectedBytes.equals(readBytes));
+        } finally {
+            fis.close();
+        }
+    }
+
+    // Test that we fail properly when there are no savefiles available
+    public void testRestoreMissingFiles()
+    throws IOException, InterruptedException
+    {
+        System.out.println("Starting testRestoreMissingFile");
+        int num_replicated_items = 1000;
+        int num_partitioned_items = 126;
+
+        Client client = getClient();
+
+        VoltTable repl_table = createReplicatedTable(num_replicated_items, 0, null);
+        // make a TPCC warehouse table
+        VoltTable partition_table =
+            createPartitionedTable(num_partitioned_items, 0);
+
+        loadTable(client, "REPLICATED_TESTER", repl_table);
+        loadTable(client, "PARTITION_TESTER", partition_table);
+        saveTables(client);
+
+        validateSnapshot(true);
+
+        // Kill and restart all the execution sites.
+        m_config.shutDown();
+        deleteTestFiles();
+        m_config.startUp();
+
+        client = getClient();
+
+        try {
+            client.callProcedure("@SnapshotRestore", TMPDIR, TESTNONCE, ALLOWEXPORT);
+        }
+        catch (Exception e) {
+            assertTrue(e.getMessage().contains("No savefile state to restore"));
+            return;
+        }
+        assertTrue(false);
+    }
+
+    // Test that we fail properly when the save files are corrupted
+//    public void testCorruptedFiles()
+//    throws Exception
+//    {
+//        System.out.println("Starting testCorruptedFiles");
+//        int num_replicated_items = 1000;
+//        int num_partitioned_items = 126;
+//        java.util.Random r = new java.util.Random(0);
+//        final int iterations = isValgrind() ? 5 : 100;
+//
+//        for (int ii = 0; ii < iterations; ii++) {
+//            Client client = getClient();
+//            VoltTable repl_table = createReplicatedTable(num_replicated_items, 0, null);
+//            // make a TPCC warehouse table
+//            VoltTable partition_table =
+//                createPartitionedTable(num_partitioned_items, 0);
+//
+//            loadTable(client, "REPLICATED_TESTER", repl_table);
+//            loadTable(client, "PARTITION_TESTER", partition_table);
+//            VoltTable results[] = saveTables(client);
+//            validateSnapshot(true);
+//            while (results[0].advanceRow()) {
+//                if (results[0].getString("RESULT").equals("FAILURE")) {
+//                    System.out.println(results[0].getString("ERR_MSG"));
+//                }
+//                assertTrue(results[0].getString("RESULT").equals("SUCCESS"));
+//            }
+//
+//            corruptTestFiles(r);
+//            validateSnapshot(false);
+//            releaseClient(client);
+//            // Kill and restart all the execution sites.
+//            m_config.shutDown();
+//            m_config.startUp();
+//
+//            client = getClient();
+//
+//            results = client.callProcedure("@SnapshotRestore", TMPDIR, TESTNONCE, ALLOWEXPORT).getResults();
+//            assertNotNull(results);
+//            deleteTestFiles();
+//            releaseClient(client);
+//        }
+//    }
+//
+//    // Test that a random corruption doesn't mess up the table. Not reproducible but useful for detecting
+//    // stuff we won't normally find
+//    public void testCorruptedFilesRandom()
+//    throws Exception
+//    {
+//        System.out.println("Starting testCorruptedFilesRandom");
+//        int num_replicated_items = 1000;
+//        int num_partitioned_items = 126;
+//        java.util.Random r = new java.util.Random();
+//        final int iterations = isValgrind() ? 5 : 100;
+//
+//        for (int ii = 0; ii < iterations; ii++) {
+//            Client client = getClient();
+//
+//            VoltTable repl_table = createReplicatedTable(num_replicated_items, 0, null);
+//            // make a TPCC warehouse table
+//            VoltTable partition_table =
+//                createPartitionedTable(num_partitioned_items, 0);
+//
+//            loadTable(client, "REPLICATED_TESTER", repl_table);
+//            loadTable(client, "PARTITION_TESTER", partition_table);
+//            saveTables(client);
+//            validateSnapshot(true);
+//            releaseClient(client);
+//            // Kill and restart all the execution sites.
+//            m_config.shutDown();
+//            corruptTestFiles(r);
+//            validateSnapshot(false);
+//            m_config.startUp();
+//
+//            client = getClient();
+//
+//            VoltTable results[] = client.callProcedure("@SnapshotRestore", TMPDIR, TESTNONCE, ALLOWEXPORT).getResults();
+//            assertNotNull(results);
+//            deleteTestFiles();
+//            releaseClient(client);
+//        }
+//    }
+//    
+//    public void testRepartition()
+//    throws IOException, InterruptedException, ProcCallException
+//    {
+//        System.out.println("Starting testRepartition");
+//        int num_replicated_items_per_chunk = 100;
+//        int num_replicated_chunks = 10;
+//        int num_partitioned_items_per_chunk = 120; // divisible by 3 and 4
+//        int num_partitioned_chunks = 10;
+//        Client client = getClient();
+//    
+//        loadLargeReplicatedTable(client, "REPLICATED_TESTER",
+//                                 num_replicated_items_per_chunk,
+//                                 num_partitioned_chunks);
+//        loadLargePartitionedTable(client, "PARTITION_TESTER",
+//                                  num_partitioned_items_per_chunk,
+//                                  num_partitioned_chunks);
+//        VoltTable[] results = null;
+//        results = saveTables(client);
+//        validateSnapshot(true);
+//        // Kill and restart all the execution sites.
+//        m_config.shutDown();
+//    
+//        CatalogChangeSingleProcessServer config =
+//            (CatalogChangeSingleProcessServer) m_config;
+//        config.recompile(4);
+//    
+//        m_config.startUp();
+//    
+//        client = getClient();
+//    
+//        try
+//        {
+//            results = client.callProcedure("@SnapshotRestore", TMPDIR,
+//                                           TESTNONCE, ALLOWEXPORT).getResults();
+//            // XXX Should check previous results for success but meh for now
+//        }
+//        catch (Exception ex)
+//        {
+//            ex.printStackTrace();
+//            fail("SnapshotRestore exception: " + ex.getMessage());
+//        }
+//    
+//        checkTable(client, "PARTITION_TESTER", "PT_ID",
+//                   num_partitioned_items_per_chunk * num_partitioned_chunks);
+//        checkTable(client, "REPLICATED_TESTER", "RT_ID",
+//                   num_replicated_items_per_chunk * num_replicated_chunks);
+//    
+//        results = client.callProcedure("@Statistics", "table", 0).getResults();
+//    
+//        int foundItem = 0;
+//        while (results[0].advanceRow())
+//        {
+//            if (results[0].getString("TABLE_NAME").equals("PARTITION_TESTER"))
+//            {
+//                ++foundItem;
+//                assertEquals((num_partitioned_items_per_chunk * num_partitioned_chunks) / 4,
+//                        results[0].getLong("TABLE_ACTIVE_TUPLE_COUNT"));
+//            }
+//        }
+//        // make sure all sites were loaded
+//        assertEquals(4, foundItem);
+//    
+//        config.revertCompile();
+//    }
     
     /**
     * Build a list of the tests to be run. Use the regression suite
