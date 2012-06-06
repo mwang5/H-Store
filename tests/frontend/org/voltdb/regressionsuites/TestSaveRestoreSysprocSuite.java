@@ -608,49 +608,49 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
     }
 
     // Test that we fail properly when the save files are corrupted
-//    public void testCorruptedFiles()
-//    throws Exception
-//    {
-//        System.out.println("Starting testCorruptedFiles");
-//        int num_replicated_items = 1000;
-//        int num_partitioned_items = 126;
-//        java.util.Random r = new java.util.Random(0);
-//        final int iterations = isValgrind() ? 5 : 100;
-//
-//        for (int ii = 0; ii < iterations; ii++) {
-//            Client client = getClient();
-//            VoltTable repl_table = createReplicatedTable(num_replicated_items, 0, null);
-//            // make a TPCC warehouse table
-//            VoltTable partition_table =
-//                createPartitionedTable(num_partitioned_items, 0);
-//
-//            loadTable(client, "REPLICATED_TESTER", repl_table);
-//            loadTable(client, "PARTITION_TESTER", partition_table);
-//            VoltTable results[] = saveTables(client);
-//            validateSnapshot(true);
-//            while (results[0].advanceRow()) {
-//                if (results[0].getString("RESULT").equals("FAILURE")) {
-//                    System.out.println(results[0].getString("ERR_MSG"));
-//                }
-//                assertTrue(results[0].getString("RESULT").equals("SUCCESS"));
-//            }
-//
-//            corruptTestFiles(r);
-//            validateSnapshot(false);
-//            releaseClient(client);
-//            // Kill and restart all the execution sites.
-//            m_config.shutDown();
-//            m_config.startUp();
-//
-//            client = getClient();
-//
-//            results = client.callProcedure("@SnapshotRestore", TMPDIR, TESTNONCE, ALLOWEXPORT).getResults();
-//            assertNotNull(results);
-//            deleteTestFiles();
-//            releaseClient(client);
-//        }
-//    }
-//
+    public void testCorruptedFiles()
+    throws Exception
+    {
+        System.out.println("Starting testCorruptedFiles");
+        int num_replicated_items = 1000;
+        int num_partitioned_items = 126;
+        java.util.Random r = new java.util.Random(0);
+        final int iterations = isValgrind() ? 5 : 100;
+
+        for (int ii = 0; ii < iterations; ii++) {
+            Client client = getClient();
+            VoltTable repl_table = createReplicatedTable(num_replicated_items, 0, null);
+            // make a TPCC warehouse table
+            VoltTable partition_table =
+                createPartitionedTable(num_partitioned_items, 0);
+
+            loadTable(client, "REPLICATED_TESTER", repl_table);
+            loadTable(client, "PARTITION_TESTER", partition_table);
+            VoltTable results[] = saveTables(client);
+            validateSnapshot(true);
+            while (results[0].advanceRow()) {
+                if (results[0].getString("RESULT").equals("FAILURE")) {
+                    System.out.println(results[0].getString("ERR_MSG"));
+                }
+                assertTrue(results[0].getString("RESULT").equals("SUCCESS"));
+            }
+
+            corruptTestFiles(r);
+            validateSnapshot(false);
+            releaseClient(client);
+            // Kill and restart all the execution sites.
+            m_config.shutDown();
+            m_config.startUp();
+
+            client = getClient();
+
+            results = client.callProcedure("@SnapshotRestore", TMPDIR, TESTNONCE, ALLOWEXPORT).getResults();
+            assertNotNull(results);
+            deleteTestFiles();
+            releaseClient(client);
+        }
+    }
+
 //    // Test that a random corruption doesn't mess up the table. Not reproducible but useful for detecting
 //    // stuff we won't normally find
 //    public void testCorruptedFilesRandom()
