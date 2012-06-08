@@ -694,7 +694,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                 final PotentialSnapshotWorkMessage msg = new PotentialSnapshotWorkMessage();
                 @Override
                 public void run() {
-                    PartitionExecutor.this.work_queue.add(msg);
+                    //PartitionExecutor.this.work_queue.add(msg);
                 }
             });
         }
