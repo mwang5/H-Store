@@ -30,6 +30,7 @@ import org.voltdb.sysprocs.SnapshotSave;
 import org.voltdb.sysprocs.saverestore.SnapshotUtil;
 
 import edu.brown.catalog.CatalogUtil;
+import edu.brown.hstore.HStore;
 import edu.brown.hstore.PartitionExecutor.SystemProcedureExecutionContext;
 
 /**
@@ -132,7 +133,7 @@ public class SnapshotSaveAPI
             String hostname, final VoltTable result) {
         {
             //final int numLocalSites = VoltDB.instance().getLocalSites().values().size();
-        	final int numLocalSites = CatalogUtil.getSitesForHost(context.getSite().getHost()).size();
+        	final int numLocalSites = CatalogUtil.getSitesForHost(context.getSite().getHost()).size(); 
             /*
              * Used to close targets on failure
              */

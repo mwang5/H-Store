@@ -674,13 +674,13 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                 lastTickTime = System.currentTimeMillis();
                 eeTemp.tick( lastTickTime, 0);
                 
-                snapshotter = new SnapshotSiteProcessor(new Runnable() {
-                    final PotentialSnapshotWorkMessage msg = new PotentialSnapshotWorkMessage();
-                    @Override
-                    public void run() {
-                        //PartitionExecutor.this.work_queue.add(msg);
-                    }
-                });
+//                snapshotter = new SnapshotSiteProcessor(new Runnable() {
+//                    final PotentialSnapshotWorkMessage msg = new PotentialSnapshotWorkMessage();
+//                    @Override
+//                    public void run() {
+//                        //PartitionExecutor.this.work_queue.add(msg);
+//                    }
+//                });
             }
             else {
                 // set up the EE over IPC
@@ -689,6 +689,14 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                 lastTickTime = System.currentTimeMillis();
                 eeTemp.tick( lastTickTime, 0);
             }
+            
+            snapshotter = new SnapshotSiteProcessor(new Runnable() {
+                final PotentialSnapshotWorkMessage msg = new PotentialSnapshotWorkMessage();
+                @Override
+                public void run() {
+                    PartitionExecutor.this.work_queue.add(msg);
+                }
+            });
         }
         // just print error info an bail if we run into an error here
         catch (final Exception ex) {

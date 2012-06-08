@@ -43,7 +43,7 @@ public class SaveRestoreTestProjectBuilder extends VoltProjectBuilder
 
     public static final URL ddlURL =
         SaveRestoreTestProjectBuilder.class.getResource("saverestore-ddl.sql");
-    public static final String jarFilename = "tpcc.jar";
+    public static final String jarFilename = "saverestore.jar";
 
     public SaveRestoreTestProjectBuilder() {
         super("saverestore");

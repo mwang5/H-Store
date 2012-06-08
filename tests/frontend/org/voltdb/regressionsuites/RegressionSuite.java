@@ -80,9 +80,10 @@ public class RegressionSuite extends TestCase {
     /**
      * JUnit special method called to shutdown the test. This instance will
      * stop the VoltDB server using the VoltServerConfig instance provided.
+     * @throws Exception 
      */
     @Override
-    public void tearDown() throws InterruptedException {
+    public void tearDown() throws InterruptedException, Exception {
         final List<String> valgrindErrors = m_config.shutDown();
         if (valgrindErrors != null) {
             String failString = "";
