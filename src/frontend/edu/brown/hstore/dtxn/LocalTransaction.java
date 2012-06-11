@@ -101,7 +101,14 @@ public class LocalTransaction extends AbstractTransaction {
      * The original StoredProcedureInvocation request that was sent to the HStoreSite
      * XXX: Why do we need to keep this?
      */
+    @Deprecated
     protected StoredProcedureInvocation invocation;
+    
+    /**
+     * StoredProcedureInvocation Input Parameters
+     * These are the parameters that are sent from the client
+     */
+    private ParameterSet parameters;
     
     /**
      * Catalog object of the Procedure that this transaction is currently executing
@@ -146,7 +153,7 @@ public class LocalTransaction extends AbstractTransaction {
      */
     private Collection<Integer> predict_touchedPartitions;
     
-    private boolean part_of_mapreduce = false;
+    private boolean mapreduce = false;
   
     /**
      * TransctionEstimator State Handle
@@ -231,12 +238,11 @@ public class LocalTransaction extends AbstractTransaction {
      * @param txn_id
      * @param clientHandle
      * @param base_partition
-     * @param predict_singlePartition
+     * @param predict_touchedPartitions
      * @param predict_readOnly
-     * @param predict_canAbort
-     * @param estimator_state
+     * @param predict_abortable
      * @param catalog_proc
-     * @param invocation
+     * @param params
      * @param client_callback
      * @return
      */
@@ -245,18 +251,23 @@ public class LocalTransaction extends AbstractTransaction {
                                   int base_partition,
                                   Collection<Integer> predict_touchedPartitions,
                                   boolean predict_readOnly,
-                                  boolean predict_canAbort,
+                                  boolean predict_abortable,
                                   Procedure catalog_proc,
-                                  StoredProcedureInvocation invocation,
+                                  ParameterSet params,
                                   RpcCallback<byte[]> client_callback) {
         assert(predict_touchedPartitions != null && predict_touchedPartitions.isEmpty() == false);
+        assert(catalog_proc != null) : "Unexpected null Procedure catalog handle";
         
         this.initiateTime = EstTime.currentTimeMillis();
-        this.predict_touchedPartitions = predict_touchedPartitions;
         this.catalog_proc = catalog_proc;
-              
-        this.invocation = invocation;
         this.client_callback = client_callback;
+        this.parameters = params;
+        this.mapreduce = catalog_proc.getMapreduce();
+        
+        // Initialize the predicted execution properties for this transaction
+        this.predict_touchedPartitions = predict_touchedPartitions;
+        this.predict_readOnly = predict_readOnly;
+        this.predict_abortable = predict_abortable;
         
         super.init(txn_id,
                     clientHandle,
@@ -264,7 +275,7 @@ public class LocalTransaction extends AbstractTransaction {
                     catalog_proc.getSystemproc(),
                     (this.predict_touchedPartitions.size() == 1),
                     predict_readOnly,
-                    predict_canAbort,
+                    predict_abortable,
                     true);
         
         // Initialize the InitialTaskMessage
@@ -273,8 +284,6 @@ public class LocalTransaction extends AbstractTransaction {
         this.itask.setTransactionId(txn_id);
         this.itask.setSrcPartition(base_partition);
         this.itask.setDestPartition(base_partition);
-        this.itask.setReadOnly(predict_readOnly);
-        this.itask.setStoredProcedureInvocation(invocation);
         this.itask.setSysProc(catalog_proc.getSystemproc());
         
         // Grab a DistributedState that will have all the goodies that we need
@@ -299,7 +308,10 @@ public class LocalTransaction extends AbstractTransaction {
      * @param catalog_proc
      * @return
      */
-    public LocalTransaction testInit(Long txn_id, int base_partition, Collection<Integer> predict_touchedPartitions, Procedure catalog_proc) {
+    public LocalTransaction testInit(Long txn_id,
+                                      int base_partition,
+                                      Collection<Integer> predict_touchedPartitions,
+                                      Procedure catalog_proc) {
         this.predict_touchedPartitions = predict_touchedPartitions;
         this.catalog_proc = catalog_proc;
         boolean predict_singlePartition = (this.predict_touchedPartitions.size() == 1);
@@ -325,10 +337,19 @@ public class LocalTransaction extends AbstractTransaction {
      * @param proc_params
      * @return
      */
-    public LocalTransaction testInit(Long txn_id, int base_partition, Collection<Integer> predict_touchedPartitions, Procedure catalog_proc, Object... proc_params) {
-        this.invocation = new StoredProcedureInvocation(0, catalog_proc.getName(), proc_params);
-        this.client_callback = new RpcCallback<byte[]>() { public void run(byte[] parameter) {} };
-        return testInit(txn_id, base_partition, predict_touchedPartitions, catalog_proc);
+    public LocalTransaction testInit(Long txn_id,
+                                      int base_partition,
+                                      Collection<Integer> predict_touchedPartitions,
+                                      Procedure catalog_proc,
+                                      Object... proc_params) {
+        this.parameters = new ParameterSet(proc_params);
+        this.client_callback = new RpcCallback<byte[]>() {
+            public void run(byte[] parameter) {}
+        };
+        return this.testInit(txn_id,
+                              base_partition,
+                              predict_touchedPartitions,
+                              catalog_proc);
     }
     
     @Override
@@ -648,6 +669,7 @@ public class LocalTransaction extends AbstractTransaction {
     // ----------------------------------------------------------------------------
     // ACCESS METHODS
     // ----------------------------------------------------------------------------
+
     
     /**
      * Returns true if the control code for this LocalTransaction was actually started
@@ -725,7 +747,11 @@ public class LocalTransaction extends AbstractTransaction {
      * @return
      */
     public boolean isMapReduce() {
-        return (this.catalog_proc.getMapreduce());
+        return (this.mapreduce);
+    }
+    
+    public void markMapReduce() {
+        this.mapreduce = true;
     }
     
     /**
@@ -752,6 +778,7 @@ public class LocalTransaction extends AbstractTransaction {
      * from the client for the original transaction request 
      * @return
      */
+    @Deprecated
     public StoredProcedureInvocation getInvocation() {
         return (this.invocation);
     }
@@ -781,13 +808,7 @@ public class LocalTransaction extends AbstractTransaction {
     public Histogram<Integer> getTouchedPartitions() {
         return (this.exec_touchedPartitions);
     }
-    public boolean isPartOfMapreduce() {
-        return part_of_mapreduce;
-    }
-
-    public void setPartOfMapreduce(boolean part_of_mapreduce) {
-        this.part_of_mapreduce = part_of_mapreduce;
-    }
+    
     public String getProcedureName() {
         return (this.catalog_proc != null ? this.catalog_proc.getName() : null);
     }
@@ -806,7 +827,11 @@ public class LocalTransaction extends AbstractTransaction {
      * parameters for this transaction
      */
     public ParameterSet getProcedureParameters() {
-    	return (this.invocation.getParams());
+    	return (this.parameters);
+    }
+    
+    public void removeProcedureParameters() {
+        this.parameters = null;
     }
     
     public int getDependencyCount() { 

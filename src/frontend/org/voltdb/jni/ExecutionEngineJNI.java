@@ -27,17 +27,16 @@ import org.voltdb.DependencySet;
 import org.voltdb.ParameterSet;
 import org.voltdb.PrivateVoltTableFactory;
 import org.voltdb.SysProcSelector;
-import org.voltdb.TableStreamType;
 import org.voltdb.VoltTable;
+import org.voltdb.catalog.Table;
+import org.voltdb.elt.ELTProtoMessage;
 import org.voltdb.exceptions.EEException;
 import org.voltdb.exceptions.SerializableException;
-import org.voltdb.export.ExportProtoMessage;
 import org.voltdb.messaging.FastDeserializer;
 import org.voltdb.messaging.FastSerializer;
 import org.voltdb.messaging.FastSerializer.BufferGrowCallback;
 import org.voltdb.utils.DBBPool.BBContainer;
 
-import edu.brown.hstore.HStoreConstants;
 import edu.brown.hstore.PartitionExecutor;
 import edu.brown.logging.LoggerUtil;
 import edu.brown.logging.LoggerUtil.LoggerBoolean;
@@ -59,7 +58,6 @@ public class ExecutionEngineJNI extends ExecutionEngine {
     private final static LoggerBoolean trace = new LoggerBoolean(LOG.isTraceEnabled());
     static {
         LoggerUtil.attachObserver(LOG, debug, trace);
-        LOG.debug("??????");
     }
     private static boolean t = trace.get();
     private static boolean d = debug.get();
@@ -91,6 +89,7 @@ public class ExecutionEngineJNI extends ExecutionEngine {
 
     /**
      * initialize the native Engine object.
+     * @see #nativeCreate()
      */
     public ExecutionEngineJNI(
             final PartitionExecutor site,
@@ -145,20 +144,13 @@ public class ExecutionEngineJNI extends ExecutionEngine {
     final protected void throwExceptionForError(final int errorCode) throws RuntimeException {
         exceptionBuffer.clear();
         final int exceptionLength = exceptionBuffer.getInt();
-        if (d) LOG.debug("EEException Length: " + exceptionLength);
 
         if (exceptionLength == 0) {
             throw new EEException(errorCode);
         } else {
             exceptionBuffer.position(0);
             exceptionBuffer.limit(4 + exceptionLength);
-            SerializableException ex = null;
-            try {
-                ex = SerializableException.deserializeFromBuffer(exceptionBuffer);
-            } catch (Throwable e) {
-                e.printStackTrace();
-            }
-            throw ex;
+            throw SerializableException.deserializeFromBuffer(exceptionBuffer);
         }
     }
 
@@ -185,8 +177,7 @@ public class ExecutionEngineJNI extends ExecutionEngine {
     }
 
     /**
-     *  Provide a serialized catalog and initialize version 0 of the engine's
-     *  catalog.
+	 * Wrapper for {@link #nativeLoadCatalog(long, String)}.
      */
     @Override
     public void loadCatalog(final String serializedCatalog) throws EEException {
@@ -201,8 +192,7 @@ public class ExecutionEngineJNI extends ExecutionEngine {
     }
 
     /**
-     * Provide a catalog diff and a new catalog version and update the
-     * engine's catalog.
+     * Wrapper for {@link #nativeUpdateCatalog(long, String)}.
      */
     @Override
     public void updateCatalog(final String catalogDiffs, int catalogVersion) throws EEException {
@@ -217,8 +207,9 @@ public class ExecutionEngineJNI extends ExecutionEngine {
     }
 
     /**
-     * @param undoToken Token identifying undo quantum for generated undo info
-     */
+	* @param undoToken Token identifying undo quantum for generated undo info
+	* Wrapper for {@link #nativeExecutePlanFragment(long, long, int, int, long, long, long)}.
+	*/
     @Override
     public DependencyPair executePlanFragment(final long planFragmentId,
                                               final int outputDepId,
@@ -303,6 +294,30 @@ public class ExecutionEngineJNI extends ExecutionEngine {
             throw new EEException(ERRORCODE_WRONG_SERIALIZED_BYTES);
         }
     }
+    
+//    @Override
+//    public DependencySet executeQueryPlanFragmentsAndGetDependencySet(
+//            long[] planFragmentIds,
+//            int numFragmentIds,
+//            int[] input_depIds,
+//            int[] output_depIds,
+//            ByteString[] parameterSets,
+//            int numParameterSets,
+//            long txnId, long lastCommittedTxnId, long undoToken) throws EEException {
+//        
+//        assert(parameterSets != null) : "Null ParameterSets for txn #" + txnId;
+//        assert (planFragmentIds.length == parameterSets.length);
+//        
+//        // serialize the param sets
+//        fsForParameterSet.clear();
+//        for (int i = 0; i < numParameterSets; ++i) {
+//            fsForParameterSet.getBBContainer().b.put(parameterSets[i].asReadOnlyByteBuffer());
+//            if (t) LOG.trace("Batch Executing planfragment:" + planFragmentIds[i] + ", params=" + parameterSets[i].toString());
+//        }
+//        
+//        return _executeQueryPlanFragmentsAndGetDependencySet(planFragmentIds, numFragmentIds, input_depIds, output_depIds, txnId, lastCommittedTxnId, undoToken);
+//    }
+
 
     /**
      * @param undoToken Token identifying undo quantum for generated undo info
@@ -311,7 +326,7 @@ public class ExecutionEngineJNI extends ExecutionEngine {
     @Override
     public DependencySet executeQueryPlanFragmentsAndGetDependencySet(
             long[] planFragmentIds,
-            int batchSize,
+            int numFragmentIds,
             int[] input_depIds,
             int[] output_depIds,
             ParameterSet[] parameterSets,
@@ -321,15 +336,15 @@ public class ExecutionEngineJNI extends ExecutionEngine {
         assert(parameterSets != null) : "Null ParameterSets for txn #" + txnId;
         assert (planFragmentIds.length == parameterSets.length);
         
-        if (batchSize == 0) {
+        if (numFragmentIds == 0) {
             LOG.warn("No fragments to execute. Returning empty DependencySet");
-            return (new DependencySet(new int[0], HStoreConstants.EMPTY_RESULT));
+            return (new DependencySet(new int[0], new VoltTable[0]));
         }
-
+        
         // serialize the param sets
         fsForParameterSet.clear();
         try {
-            for (int i = 0; i < batchSize; ++i) {
+            for (int i = 0; i < numFragmentIds; ++i) {
                 parameterSets[i].writeExternal(fsForParameterSet);
                 if (t) LOG.trace("Batch Executing planfragment:" + planFragmentIds[i] + ", params=" + parameterSets[i].toString());
             }
@@ -340,13 +355,14 @@ public class ExecutionEngineJNI extends ExecutionEngine {
         // Execute the plan, passing a raw pointer to the byte buffers for input and output
         deserializer.clear();
         final int errorCode = nativeExecuteQueryPlanFragmentsAndGetResults(pointer,
-                planFragmentIds, batchSize,
+                planFragmentIds, numFragmentIds,
                 input_depIds,
                 output_depIds,
                 txnId, lastCommittedTxnId, undoToken);
         checkErrorCode(errorCode);
 
-        // get a copy of the result buffers and make the tables use the copy
+        // get a copy of the result buffers and make the tables 
+        // use the copy
         ByteBuffer fullBacking = deserializer.buffer();
         try {
             // read the complete size of the buffer used
@@ -361,11 +377,11 @@ public class ExecutionEngineJNI extends ExecutionEngine {
             
             // At this point we don't know how many dependencies we expect to get back from our fragments.
             // We're just going to assume that each PlanFragment generated one and only one output dependency
-            VoltTable results[] = new VoltTable[batchSize];
-            int dependencies[] = new int[batchSize];
+            VoltTable results[] = new VoltTable[numFragmentIds];
+            int dependencies[] = new int[numFragmentIds];
             int dep_ctr = 0;
-            for (int i = 0; i < batchSize; ++i) {
-                int numDependencies = fullBacking.getInt(); // number of dependencies for this frag
+            for (int i = 0; i < numFragmentIds; ++i) {
+            	int numDependencies = fullBacking.getInt(); // number of dependencies for this frag
                 assert(numDependencies == 1) :
                     "Unexpected multiple output dependencies from PlanFragment #" + planFragmentIds[i];
                 
@@ -402,37 +418,14 @@ public class ExecutionEngineJNI extends ExecutionEngine {
         }
     }
     
-//    @Override
-//    public DependencySet executeQueryPlanFragmentsAndGetDependencySet(
-//            long[] planFragmentIds,
-//            int numFragmentIds,
-//            int[] input_depIds,
-//            int[] output_depIds,
-//            ByteString[] parameterSets,
-//            int numParameterSets,
-//            long txnId, long lastCommittedTxnId, long undoToken) throws EEException {
-//        
-//        assert(parameterSets != null) : "Null ParameterSets for txn #" + txnId;
-//        assert (planFragmentIds.length == parameterSets.length);
-//        
-//        // serialize the param sets
-//        fsForParameterSet.clear();
-//        for (int i = 0; i < numParameterSets; ++i) {
-//            fsForParameterSet.getBBContainer().b.put(parameterSets[i].asReadOnlyByteBuffer());
-//            if (t) LOG.trace("Batch Executing planfragment:" + planFragmentIds[i] + ", params=" + parameterSets[i].toString());
-//        }
-//        
-//        return _executeQueryPlanFragmentsAndGetDependencySet(planFragmentIds, numFragmentIds, input_depIds, output_depIds, txnId, lastCommittedTxnId, undoToken);
-//    }
-    
-
+    /**
+	* Wrapper for {@link #nativeSerializeTable(long, int, ByteBuffer, int)}.
+	*/
     @Override
-    public VoltTable serializeTable(final int tableId) throws EEException {
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("Retrieving VoltTable:" + tableId);
-        }
+    public VoltTable serializeTable(final Table catalog_tbl, int offset, int limit) throws EEException {
+    	if (t) LOG.trace(String.format("Serializing %s [offset=%d, limit=%d]", catalog_tbl, offset, limit));
         deserializer.clear();
-        final int errorCode = nativeSerializeTable(pointer, tableId, deserializer.buffer(),
+        final int errorCode = nativeSerializeTable(pointer, catalog_tbl.getRelativeIndex(), offset, limit, deserializer.buffer(),
                 deserializer.buffer().capacity());
         checkErrorCode(errorCode);
 
@@ -444,6 +437,9 @@ public class ExecutionEngineJNI extends ExecutionEngine {
         }
     }
 
+    /**
+	* Wrapper for {@link #nativeLoadTable(long, int, byte[], long, long, long, boolean)}.
+	*/
     @Override
     public void loadTable(final int tableId, final VoltTable table,
         final long txnId, final long lastCommittedTxnId,
@@ -510,6 +506,9 @@ public class ExecutionEngineJNI extends ExecutionEngine {
         }
     }
 
+    /**
+	* Wrapper for {@link #nativeToggleProfiler(long, int)}.
+	*/
     @Override
     public int toggleProfiler(final int toggle) {
         return nativeToggleProfiler(pointer, toggle);
@@ -551,17 +550,15 @@ public class ExecutionEngineJNI extends ExecutionEngine {
      * data is returned in the usual results buffer, length preceded as usual.
      */
     @Override
-    public ExportProtoMessage exportAction(boolean ackAction, boolean pollAction,
-            boolean resetAction, boolean syncAction,
-            long ackTxnId, long seqNo, int partitionId, long tableId)
+    public ELTProtoMessage eltAction(boolean ackAction, boolean pollAction,
+            long ackTxnId, int partitionId, int tableId)
     {
         deserializer.clear();
         ExportProtoMessage result = null;
         try {
-            long offset = nativeExportAction(pointer, ackAction, pollAction, resetAction,
-                                             syncAction, ackTxnId, seqNo, tableId);
+        	long offset = nativeELTAction(pointer, ackAction, pollAction, ackTxnId, tableId);
             if (offset < 0) {
-                result = new ExportProtoMessage(partitionId, tableId);
+            	result = new ELTProtoMessage(partitionId, tableId);
                 result.error();
             }
             else if (pollAction) {
@@ -576,7 +573,7 @@ public class ExecutionEngineJNI extends ExecutionEngine {
                 // so add it back to the byteLen.
                 deserializer.buffer().position(0);
                 b = deserializer.readBuffer(byteLen + 4);
-                result = new ExportProtoMessage(partitionId, tableId);
+                result = new ELTProtoMessage(partitionId, tableId);
                 result.pollResponse(offset, b);
             }
         }
@@ -587,32 +584,5 @@ public class ExecutionEngineJNI extends ExecutionEngine {
             throw new RuntimeException(e);
         }
         return result;
-    }
-
-    @Override
-    public void processRecoveryMessage( ByteBuffer buffer, long bufferPointer) {
-        nativeProcessRecoveryMessage( pointer, bufferPointer, buffer.position(), buffer.remaining());
-    }
-
-    @Override
-    public long tableHashCode(int tableId) {
-        return nativeTableHashCode( pointer, tableId);
-    }
-
-    @Override
-    public int hashinate(Object value, int partitionCount)
-    {
-        ParameterSet parameterSet = new ParameterSet(true);
-        parameterSet.setParameters(value);
-
-        // serialize the param set
-        fsForParameterSet.clear();
-        try {
-            parameterSet.writeExternal(fsForParameterSet);
-        } catch (final IOException exception) {
-            throw new RuntimeException(exception); // can't happen
-        }
-
-        return nativeHashinate(pointer, partitionCount);
     }
 }

@@ -256,7 +256,7 @@ public final class HStoreConf {
                         "all of the PartitionExecutors. This may help with multi-partition transactions but will be the bottleneck " +
                         "for single-partition txn heavy workloads because the thread must acquire the lock on each partition's " +
                         "ExecutionEngine in order to commit or abort a transaction.",
-            defaultBoolean=false,
+            defaultBoolean=true,
             experimental=true
         )
         public boolean exec_postprocessing_thread;
@@ -268,6 +268,13 @@ public final class HStoreConf {
             experimental=true
         )
         public int exec_postprocessing_thread_count;
+        
+        @ConfigProperty(
+            description="",
+            defaultBoolean=false,
+            experimental=true
+        )
+        public boolean exec_postprocessing_thread_per_partition;
         
         @ConfigProperty(
             description="If this enabled with speculative execution, then HStoreSite only invoke the commit operation in the " +
@@ -350,12 +357,6 @@ public final class HStoreConf {
         public boolean exec_prefetch_queries;
         
         @ConfigProperty(
-//                description="If this parameter is enabled, then sites will attempt to execute queries marked as deferred" +
-//                		    "while idle or waiting on a distribute transaction.",
-//                defaultBoolean=false,
-//                experimental=true
-//            )
-//        public boolean exec_deferred_queries;
             description="If this parameter is enabled, then the DBMS will queue up any single-partitioned " +
             		    "queries for later execution if they are marked as deferrable.",
             defaultBoolean=false,
@@ -418,7 +419,10 @@ public final class HStoreConf {
         public int txn_restart_limit_sysproc;
         
         @ConfigProperty(
-            description="", // TODO
+            description="If set to true, then the HStoreSite will use a separate TransactionIdManager" +
+            		    "per partition. This can reduce some lock contention for workloads where " +
+            		    "transactions are restarted a lot. This actually doesn't work very well, " +
+            		    "so you probably do not want to bother with this parameter.",
             defaultBoolean=false,
             experimental=true
         )
@@ -913,6 +917,13 @@ public final class HStoreConf {
         )
         @Deprecated
         public int pool_txnprepare_idle;
+        
+        @ConfigProperty(
+            description="The max number of ParameterSets to keep idle in the pool.",
+            defaultInt=2500,
+            experimental=false
+        )
+        public int pool_parametersets_idle;
     }
     
     // ============================================================================
