@@ -923,7 +923,6 @@ the single process JNI backend. -->
                 <exclude name="**/TestMaliciousClientSuite.class" />
                 <exclude name="**/TestELTSuite.class" />
                 <exclude name="**/TestFailuresSuite.class" />
-                <exclude name="**/TestSaveRestoreSysprocSuite.class" />
                 <exclude name="**/TestPrefetchableSuite.class" />
                 
                 <!-- Tests that use too much memory -->
@@ -1012,7 +1011,6 @@ This runs all the tests before failing. -->
                 <exclude name="**/TestMaliciousClientSuite.class" />
                 <exclude name="**/TestELTSuite.class" />
                 <exclude name="**/TestFailuresSuite.class" />
-                <exclude name="**/TestSaveRestoreSysprocSuite.class" />
                 <exclude name="**/TestPrefetchableSuite.class" />
 
                 <!-- Tests that use too much memory -->
