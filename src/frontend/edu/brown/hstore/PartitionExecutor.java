@@ -41,6 +41,7 @@
  */
 package edu.brown.hstore;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -2356,6 +2357,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
         // Otherwise, we need to generate WorkFragments and then send the messages out 
         // to our remote partitions using the HStoreCoordinator
         else {
+            if (d) LOG.debug(ts + " - Using PartitionExecutor.dispatchWorkFragments() to execute distributed queries");
             this.tmp_partitionFragments.clear();
             plan.getWorkFragments(ts.getTransactionId(), this.tmp_partitionFragments);
             if (t) LOG.trace("Got back a set of tasks for " + this.tmp_partitionFragments.size() + " partitions for " + ts);
@@ -2388,7 +2390,12 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
         if (error != null) {
             int size = error.getSerializedSize();
             BBContainer bc = this.buffer_pool.acquire(size);
-            error.serializeToBuffer(bc.b);
+            try {
+            	error.serializeToBuffer(bc.b);
+            } catch (Exception ex) {
+                String msg = "Failed to serialize error for " + ts;
+            	throw new ServerFaultException(msg, ex);
+            }
             bc.b.rewind();
             builder.setError(ByteString.copyFrom(bc.b));
             bc.discard();
