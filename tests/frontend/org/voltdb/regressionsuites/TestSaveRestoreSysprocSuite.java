@@ -405,13 +405,13 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
 
         client = getClient();
 
-//        client.callProcedure("@SnapshotRestore", TMPDIR, TESTNONCE, ALLOWEXPORT);
-//
-//        results = client.callProcedure("JumboSelect", 0).getResults();
-//        assertEquals(results.length, 1);
-//        assertTrue(results[0].advanceRow());
-//        assertTrue(java.util.Arrays.equals( results[0].getStringAsBytes(1), firstStringBytes));
-//        assertTrue(java.util.Arrays.equals( results[0].getStringAsBytes(2), secondStringBytes));
+        client.callProcedure("@SnapshotRestore", TMPDIR, TESTNONCE, ALLOWEXPORT);
+
+        results = client.callProcedure("JumboSelect", 0).getResults();
+        assertEquals(results.length, 1);
+        assertTrue(results[0].advanceRow());
+        assertTrue(java.util.Arrays.equals( results[0].getStringAsBytes(1), firstStringBytes));
+        assertTrue(java.util.Arrays.equals( results[0].getStringAsBytes(2), secondStringBytes));
     }
     
     /*
@@ -434,11 +434,12 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         loadLargePartitionedTable(client, "PARTITION_TESTER",
                                   num_partitioned_items_per_chunk,
                                   num_partitioned_chunks);
-
+        /*test for SnapshotSave*/
         VoltTable[] results = null;
         results = client.callProcedure("@SnapshotSave", TMPDIR, TESTNONCE, (byte)1).getResults();
         validateSnapshot(true);
 
+        /*test for SnapshotScan*/
         VoltTable scanResults[] = client.callProcedure("@SnapshotScan", new Object[] { null }).getResults();
         assertNotNull(scanResults);
         assertEquals( 1, scanResults.length);
@@ -531,8 +532,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
                 assertTrue(results[0].getString("ERR_MSG").contains("SAVE FILE ALREADY EXISTS"));
             }
         }
-        
-        /*snapshotdelete was not implemented*/
+
     }
     private void generateAndValidateTextFile(StringBuilder expectedText, boolean csv) throws Exception {
         String args[] = new String[] {
