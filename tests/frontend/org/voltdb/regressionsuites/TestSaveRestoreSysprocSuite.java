@@ -723,7 +723,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
           project.addAllDefaults();
           
         config =
-            new LocalSingleProcessServer("sysproc-threesites.jar", 1,
+            new LocalSingleProcessServer("sysproc-threesites.jar", 3,
                                                  BackendTarget.NATIVE_EE_JNI);
         boolean success = config.compile(project);
         assert(success);
