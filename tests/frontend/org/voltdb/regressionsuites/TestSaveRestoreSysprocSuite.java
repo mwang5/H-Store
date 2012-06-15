@@ -366,53 +366,6 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
             System.setOut(original);
         }
     }
-
-    public void testSaveRestoreJumboRows()
-    throws IOException, InterruptedException, ProcCallException
-    {
-        System.out.println("Starting testSaveRestoreJumboRows.");
-        Client client = getClient();
-        byte firstStringBytes[] = new byte[1048576];
-        java.util.Arrays.fill(firstStringBytes, (byte)'c');
-        String firstString = new String(firstStringBytes, "UTF-8");
-        byte secondStringBytes[] = new byte[1048564];
-        java.util.Arrays.fill(secondStringBytes, (byte)'a');
-        String secondString = new String(secondStringBytes, "UTF-8");
-
-        VoltTable results[] = client.callProcedure("JumboInsert", 0, firstString, secondString).getResults();
-        firstString = null;
-        secondString = null;
-
-        assertEquals(results.length, 1);
-        assertEquals( 1, results[0].asScalarLong());
-
-        results = client.callProcedure("JumboSelect", 0).getResults();
-        assertEquals(results.length, 1);
-        assertTrue(results[0].advanceRow());
-        assertTrue(java.util.Arrays.equals( results[0].getStringAsBytes(1), firstStringBytes));
-        assertTrue(java.util.Arrays.equals( results[0].getStringAsBytes(2), secondStringBytes));
-
-        saveTables(client);
-        validateSnapshot(true);
-
-        // Kill and restart all the execution sites.
-        m_config.shutDown();
-
-        releaseClient(client);
-        // Kill and restart all the execution sites.
-        m_config.shutDown();
-        m_config.startUp();
-
-        client = getClient();
-
-        client.callProcedure("@SnapshotRestore", TMPDIR, TESTNONCE, ALLOWEXPORT);
-
-        results = client.callProcedure("JumboSelect", 0).getResults();
-        assertEquals(results.length, 1);
-        assertTrue(results[0].advanceRow());
-        assertTrue(java.util.Arrays.equals( results[0].getStringAsBytes(1), firstStringBytes));
-        assertTrue(java.util.Arrays.equals( results[0].getStringAsBytes(2), secondStringBytes));
-    }
     
     /*
     * Also does some basic smoke tests
@@ -570,7 +523,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
     }
 
     // Test that we fail properly when there are no savefiles available
-    public void testRestoreMissingFiles()
+    public void testRestoreFiles()
     throws IOException, InterruptedException
     {
         System.out.println("Starting testRestoreMissingFile");
@@ -650,7 +603,7 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
 //            releaseClient(client);
 //        }
 //    }
-
+//
 //    // Test that a random corruption doesn't mess up the table. Not reproducible but useful for detecting
 //    // stuff we won't normally find
 //    public void testCorruptedFilesRandom()
