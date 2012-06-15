@@ -77,8 +77,9 @@
 <property name="build.protobuf.dir.protoc" location="${build.protobuf.dir}/src/protoc" />
 
 <!-- TPC-E Generator -->
-<property name="src.tpce.dir" location="third_party/cpp/tpceloader" />
-<property name="build.tpce.dir" location="${build.dir}/tpceloader" />
+
+<property name="src.tpce.dir"                location="third_party/cpp/tpceloader" />
+
 
 <!-- emma build instrumentation location -->
 <property name='build.instr.dir' location='${build.dir}/instr' />
@@ -482,13 +483,14 @@ JAVA COMPILATION
         dir='${src.frontend.dir}/org/voltdb/utils'
         executable='${src.frontend.dir}/org/voltdb/utils/generate_logkeys.py'
         failonerror='true' />
-        
-<!-- <exec dir='.'
-executable='${tools.dir}/preprocessor.py'
-failonerror='true' >
-<arg line='${src.frontend.dir} ${build.preprocessor.dir}' />
-</exec>-->
-        
+
+<!--    <exec dir='.'
+          executable='${tools.dir}/preprocessor.py'
+          failonerror='true' >
+        <arg line='${src.frontend.dir} ${build.preprocessor.dir}' />
+    </exec>-->
+
+
     <depend
         srcdir="${src.hsqldb.dir}:${src.hsqldb.test.dir}:${src.frontend.dir}:${src.test.dir}:${vendor.src.dir}"
         destdir="${build.prod.dir}:${build.test.dir}"
@@ -543,7 +545,7 @@ relative to the client class and found with class.getResource() -->
         debug='true'>
         <classpath refid="project.classpath" />
     </javac>
-    
+
     <javac includeantruntime="false"
         target="${javac.version}"
         srcdir="${src.protorpc.dir}"
@@ -551,7 +553,7 @@ relative to the client class and found with class.getResource() -->
         debug='true'>
         <classpath refid="project.classpath" />
     </javac>
-    
+
     <javac includeantruntime="false"
         target="${javac.version}"
         srcdir="${src.hsqldb.dir}"
@@ -593,18 +595,19 @@ relative to the client class and found with class.getResource() -->
         debug='true'>
         <classpath refid="project.classpath" />
     </javac>
-    
-<!-- <javac includeantruntime="false"
-target="${javac.version}"
-srcdir="${build.preprocessor.dir}"
-destdir='${build.prod.dir}'
-debug='true'>
-<classpath refid="project.classpath" />
-</javac>-->
-    
+
+<!--    <javac includeantruntime="false"
+        target="${javac.version}"
+        srcdir="${build.preprocessor.dir}"
+        destdir='${build.prod.dir}'
+        debug='true'>
+        <classpath refid="project.classpath" />
+    </javac>-->
+
     <delete dir="${build.prod.dir}/META-INF/"/>
-    
-<!-- <antcall target="log4j_properties" /> -->
+
+<!--     <antcall target="log4j_properties" /> -->
+
 </target>
 
 <!--<target name="log4j_properties.check">
@@ -801,7 +804,7 @@ org.voltdb.messaging.EchoServer" />
     <attribute name='showoutput' default='false' />
     <element name='tests'/>
     <element name='formatters'/>
-    
+
     <sequential>
         <mkdir dir='${build.testoutput.dir}' />
         <delete includeemptydirs="true" failonerror='false'>
@@ -822,7 +825,7 @@ org.voltdb.messaging.EchoServer" />
             <jvmarg value="-Xcheck:jni" />
             <jvmarg value="-Xmx2600m"/>
             <jvmarg value="-XX:+HeapDumpOnOutOfMemoryError"/>
-            
+
             <env key="ENABLE_JAR_REUSE" value="${junit.reusejars}"/>
             <env key="VOLTDB_BUILD_DIR" value="${build.dir}"/>
             <env key="TEST_DIR" value="${build.testobjects.dir}" />
@@ -834,11 +837,11 @@ for most tests (those that would normally run against
 the single process JNI backend. -->
             <env key="BUILD" value="${build}" />
             <env key="VOLTDBIPC_PATH" value="${build.prod.dir}/voltdbipc" />
-            
+
             <!-- Brown Benchmark Parameters -->
-            <env key="EGENLOADER_HOME" value="${build.tpce.dir}" />
+            <env key="TPCE_LOADER_FILES" value="${src.tpce.dir}" />
             <env key="AIRLINE_DATA_DIR" value="${src.test.dir}/edu/brown/benchmark/airline/data" />
-            
+
             <!-- code coverage output settings, harmless if not in use -->
             <jvmarg value="-Demma.coverage.out.file=${emma.dir}/coverage.emma" />
             <jvmarg value="-Demma.coverage.out.merge=true" />
@@ -908,7 +911,7 @@ the single process JNI backend. -->
                 <include name='org/voltdb/messaging/**/*Test.class'/>
                 <include name='org/voltdb/network/**/*Test.class'/>
                 <include name='org/voltdb/utils/**/*Test.class'/>
-                
+
                 <!-- Busted tests because of hacking -->
                 <exclude name='edu/brown/benchmark/airline/Test*'/>
                 <exclude name='edu/brown/benchmark/airline/util/TestHistogramUtil*'/>
@@ -931,7 +934,6 @@ the single process JNI backend. -->
                 <!-- Misc VoltDB stuff -->
                 <exclude name='org/voltdb/TestAdHocQueries*'/>
                 <exclude name='org/voltdb/TestHSQLBackend*'/>
-                
                 <exclude name="**/*$*.class"/>
             </fileset>
         </tests>
@@ -1385,7 +1387,7 @@ PROTOCOL BUFFERS
     <attribute name="srcdir"/>
     <attribute name="destdir"/>
     <element name="files" implicit="true"/>
-    
+
     <sequential>
         <mkdir dir="@{destdir}" />
         <apply executable="${build.protobuf.dir.protoc}" dest="@{destdir}" resolveexecutable="true" failonerror="true" verbose="true">
@@ -1477,7 +1479,7 @@ BENCHMARKS
 
 <target name='benchmark'
     description="Deploy a cluster and run a benchmark">
-    
+
     <!-- Benchmarks Configuration File -->
     <condition property="benchmark.conf" value="${benchmark.dir}/${project}.properties">
         <not>
@@ -1486,7 +1488,7 @@ BENCHMARKS
     </condition>
     <property file="${benchmark.conf}" prefix="benchmark" />
     <fail message="Invalid benchmark project '${project}'" unless="benchmark.builder" />
-    
+
     <java fork="true" failonerror="true"
         classname="edu.brown.benchmark.BenchmarkController">
         <classpath refid='project.classpath' />
@@ -1512,7 +1514,7 @@ BENCHMARKS
         <arg value="partitionplan=${partitionplan}" />
         <arg value="partitionplan.nosecondary=${partitionplan.nosecondary}" />
         <arg value="partitionplan.ignore_missing=${partitionplan.ignore_missing}" />
-        
+
         <arg value="markov=${markov}" />
         <arg value="markov.thresholds=${markov.thresholds}" />
         <arg value="markov.thresholds.value=${markov.thresholds.value}" />
@@ -1526,14 +1528,20 @@ BENCHMARKS
 
         <arg value="DUMPDATABASE=${client.dump_database}" />
         <arg value="DUMPDATABASEDIR=${client.dump_database_dir}" />
-        
+
         &common;
-        
+
         <!-- Benchmark Parameters -->
         <arg value="benchmark.conf=${benchmark.conf}" />
         <arg value="benchmark.builder=${benchmark.builder}" />
         <arg value="benchmark.initial_polling_delay=${benchmark.initial_polling_delay}" />
         <arg value="benchmark.datadir=${benchmark.datadir}"/>
+    	
+        <!-- TPC-E Parameters -->
+    	<arg value="benchmark.tpce_loader_files=${benchmark.tpce_loader_files}"/>
+        <arg value="benchmark.tpce_total_customers=${benchmark.tpce_total_customers}"/>
+        <arg value="benchmark.tpce_scale_factor=${benchmark.tpce_scale_factor}"/>
+        <arg value="benchmark.tpce_initial_days=${benchmark.tpce_initial_days}"/>
 
         <!-- These are currently ignored (I think...) -->
         <arg value="HOST=${manualhost1}" />
@@ -1544,7 +1552,7 @@ BENCHMARKS
         <arg value="CHECKTRANSACTION=${checktransaction}" />
         <arg value="CHECKTABLES=${checktables}" />
         <arg value="LOCAL=${local}" />
-        
+
         <arg value="COMPILE=${compile}" />
         <arg value="COMPILEONLY=${compileonly}" />
         <arg value="CATALOGHOSTS=${cataloghosts}" />
@@ -1555,7 +1563,7 @@ BENCHMARKS
         <arg value="NOEXECUTE=${noexecute}" />
         <arg value="NOSHUTDOWN=${noshutdown}" />
         <arg value="KILLONZERO=${killonzero}" />
-        
+
         <!-- Actual number of connections opened to cluster will be:
 NUMCONNECTIONS * CLIENTCOUNT * PROCESSESPERCLIENT * HOSTCOUNT -->
         <arg value="NUMCONNECTIONS=${numconnections}" />
@@ -1894,10 +1902,11 @@ DESIGNER
         <classpath refid='project.classpath' />
         <assertions><enable /></assertions>
     </java>
-    
-<!-- <exec dir="${basedir}" executable="dot">
-<arg line="-Tpng ${project}.dot > ${project}.png"/>
-</exec>-->
+
+<!--    <exec dir="${basedir}" executable="dot">
+        <arg line="-Tpng ${project}.dot > ${project}.png"/>
+    </exec>-->
+
 </target>
 
 <target name='weka' description="Launch Weka GUI">
@@ -2028,12 +2037,12 @@ DESIGNER
 
 <target name='designer-prepare'
         description="Prepare various files needed by designer components">
-    
+
     <condition property="target.workload" value="${project}">
         <not><isset property="target.workload"/></not>
     </condition>
     <property name="benchmark.tablestats" location="${global.temp_dir}/stats/${project}.stats" />
-    
+
     <echo>Creating table stats file for ${project}...</echo>
     <java fork="yes" classname="edu.brown.statistics.AbstractTableStatisticsGenerator" failonerror='true'>
         <jvmarg value="-Xmx${volt.client.memory}m" />
@@ -2044,7 +2053,7 @@ DESIGNER
         <classpath refid='project.classpath' />
         <assertions><enable /></assertions>
     </java>
-    
+
     <echo>Creating stats file for workload '${target.workload}' using '${benchmark.tablestats}' as base</echo>
     <antcall target="stats">
         <param name="workload" value="${files.workloads.dir}/${target.workload}.trace.gz" />
@@ -2053,7 +2062,7 @@ DESIGNER
     </antcall>
     <gzip src="${files.stats.dir}/${project}.stats" destfile="${files.stats.dir}/${project}.stats.gz"/>
     <delete file="${files.stats.dir}/${project}.stats" />
-    
+
     <echo>Creating mappings file for workload '${target.workload}'</echo>
     <antcall target="mappings-generate">
         <param name="workload" value="${files.workloads.dir}/${target.workload}.trace.gz" />
@@ -2181,51 +2190,6 @@ DESIGNER
     </java>
 </target>
 
-
-<!--
-***************************************
-TPC-E EGenLoader
-***************************************
--->
-
-<target name='tpceloader' description="Builds the TPC-E EGenLoader"
-                          depends="tpceloader.check, getcpus"
-                          unless="tpceloader.built">
-    <mkdir dir="${build.tpce.dir}" />
-   
-    <echo message="src.tpce.dir: ${src.tpce.dir}" />
-    <exec executable="make" dir="${src.tpce.dir}/prj" failonerror="true" resolveexecutable="true" >
-        <arg value="-j${numcpus}" />
-        <arg value="SOURCE=.." />
-        <arg value="PREFIX=${build.tpce.dir}" />
-        <arg value="DEBUG_OPTS=-DDEBUG -Wall -Wextra" />
-    </exec>
-    
-    <!-- Copy Input Files -->
-    <mkdir dir="${build.tpce.dir}/flat_in" />
-    <copy todir="${build.tpce.dir}/flat_in">
-        <fileset dir="${src.tpce.dir}/flat_in"/>
-    </copy>
-</target>
-
-<target name="tpceloader.javah">
-    <javah
-        classpathref="project.classpath"
-        force="yes"
-        verbose="yes"
-        class="edu.brown.benchmark.tpce.EGenClientDriver"
-        destdir="${src.tpce.dir}/drivers"
-    />
-</target>
-
-<target name="tpceloader.check">
-    <uptodate property="tpceloader.built"
-              targetfile="${build.tpce.dir}/lib/libegen.so">
-        <srcfiles dir="${src.tpce.dir}" includes="src/*.cpp" />
-        <srcfiles dir="${src.tpce.dir}" includes="drivers/*.cpp" />
-    </uptodate>
-</target>
-
 <!--
 ***************************************
 OLTP Generator
@@ -2286,7 +2250,7 @@ H-STORE REMIX
         <param name="compile" value="true" />
         <param name="host1" value="${global.defaulthost}" />
     </antcall>
-    
+
     <!-- Sets up host/site/partition information in system catalogs -->
     <antcall target="hstore-jar" />
 </target>
@@ -2306,21 +2270,21 @@ H-STORE REMIX
         <jvmarg value="-Xms${site.memory}m" />
         <!-- Maximum Heap Size -->
         <jvmarg value="-Xmx${site.memory}m" />
-        
+
         <!-- JProfiler -->
         <!-- <jvmarg value="-agentpath:${jprofiler.dir}/bin/linux-x64/libjprofilerti.so=port=${jprofiler.port}" /> -->
-        
+
         <!-- Parallel Garbage Collector (Slower) -->
         <!-- <jvmarg value="-XX:+UseParNewGC" /> -->
         <!-- <jvmarg value="-XX:+UseConcMarkSweepGC" /> -->
         <!-- <jvmarg value="-XX:+CMSIncrementalMode" /> -->
-        
+
         <!-- Garbage Collector Debug Output -->
         <!-- <jvmarg value="-verbose:gc" /> -->
         <!-- <jvmarg value="-XX:+PrintGCDetails" /> -->
         <!-- <jvmarg value="-XX:+PrintGCTimeStamps" /> -->
         <!-- <jvmarg value="-XX:-TraceClassUnloading" /> -->
-        
+
         <!-- Other JVM Options -->
         <jvmarg value="-Dlog4j.configuration=${basedir}/log4j.properties"/>
         <jvmarg value="-server" />
@@ -2342,9 +2306,9 @@ H-STORE REMIX
         <arg value="partitionplan.ignore_missing=${partitionplan.ignore_missing}" />
         <arg value="workload.output=${workload.output}" />
         <arg value="workload.procexclude=${benchmark.workload.ignore}" />
-        
+
         &common;
-        
+
         <classpath refid='project.classpath' />
         <assertions><enable /></assertions>
     </java>
@@ -2400,7 +2364,7 @@ H-STORE REMIX
     <antcall target="catalog-fix">
         <param name="jar" value="${benchmark.jar}" />
         <param name="mappings" value="${files.mappings.dir}/${project}.mappings" />
-        
+
         <!-- FORMAT: <hostname>:<site#>:<partition#> -->
 <!-- <param name="hosts" value="${global.defaulthost}:0:0,${global.defaulthost}:1:1" /> -->
 <!-- <param name="hosts" value="${global.defaulthost}:0:0,${global.defaulthost}:0:1,${global.defaulthost}:0:2,${global.defaulthost}:0:3,${global.defaulthost}:0:4" /> -->
