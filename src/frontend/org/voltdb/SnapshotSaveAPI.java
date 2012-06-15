@@ -133,7 +133,9 @@ public class SnapshotSaveAPI
             String hostname, final VoltTable result) {
         {
             //final int numLocalSites = VoltDB.instance().getLocalSites().values().size();
-        	final int numLocalSites = CatalogUtil.getSitesForHost(context.getSite().getHost()).size(); 
+            //final int numLocalSites = CatalogUtil.getNumberOfPartitions(context.getCatalog());
+            final int numLocalSites= HStore.instance().getLocalPartitionIdArray().length;
+            
             /*
              * Used to close targets on failure
              */
