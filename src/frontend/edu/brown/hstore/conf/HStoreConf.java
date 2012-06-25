@@ -32,8 +32,12 @@ public final class HStoreConf {
         LoggerUtil.attachObserver(LOG, debug, trace);
     }
     
-    
-    static final Pattern REGEX_PARSE = Pattern.compile("(site|client|global)\\.([\\w\\_]+)");
+    /**
+     * Regular expression for splitting a parameter into
+     * prefix and suffix components
+     */
+    protected static final String REGEX_STR = "(site|client|global)\\.([\\w\\_]+)";
+    protected static final Pattern REGEX_PARSE = Pattern.compile(REGEX_STR);
     
     // ============================================================================
     // GLOBAL
@@ -136,9 +140,9 @@ public final class HStoreConf {
         @ConfigProperty(
             description="When used in conjunction with ${site.cpu_affinity}, each PartitionExecutor thread will be " +
                         "assigned to one and only CPU core. No other thread within the HStoreSite (including all " +
-                        "other PartitionExecutors) will be allowed to execute on that core. This configuration option is " +
-                        "mostly used for debugging and is unlikely to provide any speed improvement because the " +
-                        "operating system will automatically maintain CPU affinity.",
+                        "other PartitionExecutors) will be allowed to execute on that core. This configuration " +
+                        "option is mostly used for debugging and is unlikely to provide any speed improvement " +
+                        "because the operating system will automatically maintain CPU affinity.",
             defaultBoolean=false,
             experimental=true
         )
@@ -262,23 +266,22 @@ public final class HStoreConf {
         public boolean exec_mispredict_crash;
         
         @ConfigProperty(
-            description="If this enabled, HStoreSite will use a separate thread to process every outbound " +
-            		    "ClientResponse for all of the PartitionExecutors. This may help with multi-partition " +
-            		    "transactions but will be the bottleneck for single-partition txn heavy workloads " +
-            		    "because the thread must acquire the lock on each PartitionExecutor in order to commit " +
-            		    "or abort a transaction.",
+            description="If this enabled, HStoreSite will use a separate thread to process inbound requests " +
+            		    "from the clients.",
             defaultBoolean=false,
-            experimental=true
+            experimental=false
         )
-        public boolean exec_postprocessing_thread;
+        public boolean exec_preprocessing_threads;
         
         @ConfigProperty(
-            description="The number of post-processing threads to use per HStoreSite. " +
-                        "The ${site.exec_postprocessing_thread} parameter must be set to true.",
-            defaultInt=1,
+            description="The number of TransactionPreProcessor threads to use per HStoreSite. " +
+                        "If this parameter is set to -1, then the system will automatically use all " +
+                        "of the non-PartitionExecutor cores for these processing threads. " +
+                        "The ${site.exec_preprocessing_threads} parameter must be set to true. ",
+            defaultInt=-1,
             experimental=true
         )
-        public int exec_postprocessing_thread_count;
+        public int exec_preprocessing_threads_count;
         
         @ConfigProperty(
             description="Use a single TransactionPostProcessor thread per partition on the HStoreSite. " +
@@ -286,7 +289,17 @@ public final class HStoreConf {
             defaultBoolean=false,
             experimental=true
         )
-        public boolean exec_postprocessing_thread_per_partition;
+        public boolean exec_postprocessing_threads;
+        
+        @ConfigProperty(
+            description="The number of TransactionPostProcessor threads to use per HStoreSite. " +
+                        "If this parameter is set to -1, then the system will automatically use all " +
+                        "of the non-PartitionExecutor cores for these processing threads. " +
+                        "The ${site.exec_postprocessing_threads} parameter must be set to true. ",
+            defaultInt=-1,
+            experimental=true
+        )
+        public int exec_postprocessing_threads_count;
         
         @ConfigProperty(
             description="If this enabled with speculative execution, then HStoreSite only invoke the commit " +
@@ -317,37 +330,38 @@ public final class HStoreConf {
         @ConfigProperty(
             description="If enabled, log all transaction requests to disk",
             defaultBoolean=false,
+            replacedBy="site.commandlog_enable",
             experimental=true
         )
+        @Deprecated
         public boolean exec_command_logging;
         
         @ConfigProperty(
             description="Directory for storage of command logging files",
             defaultString="${global.temp_dir}/wal",
+            replacedBy="site.commandlog_dir",
             experimental=true
         )
+        @Deprecated
         public String exec_command_logging_directory = HStoreConf.this.global.temp_dir + "/wal";
-        
-        @ConfigProperty(
-            description="Transactions to queue before flush for group commit command logging optimization (0 = no group commit)",
-            defaultInt=0,
-            experimental=true
-        )
-        public int exec_command_logging_group_commit;
         
         @ConfigProperty(
             description="Timeout in milliseconds before group commit buffer flushes, if it does not fill",
             defaultInt=500,
+            replacedBy="site.commandlog_timeout",
             experimental=true
         )
+        @Deprecated
         public int exec_command_logging_group_commit_timeout;
         
         @ConfigProperty(
             description="If enabled, then the CommandLogWriter will keep track of various internal " +
             		    "profile statistics.",
             defaultBoolean=false,
+            replacedBy="site.commandlog_profiling",
             experimental=true
         )
+        @Deprecated
         public boolean exec_command_logging_profile;
         
         @ConfigProperty(
@@ -375,6 +389,39 @@ public final class HStoreConf {
             experimental=true
         )
         public boolean exec_deferrable_queries;
+        
+        // ----------------------------------------------------------------------------
+        // Command Logging Options
+        // ----------------------------------------------------------------------------
+        
+        @ConfigProperty(
+            description="If enabled, log all transaction requests to disk",
+            defaultBoolean=false,
+            experimental=true
+        )
+        public boolean commandlog_enable;
+        
+        @ConfigProperty(
+            description="Directory for storage of command logging files",
+            defaultString="${global.temp_dir}/wal",
+            experimental=true
+        )
+        public String commandlog_dir = HStoreConf.this.global.temp_dir + "/wal";
+        
+        @ConfigProperty(
+            description="Timeout in milliseconds before group commit buffer flushes, if it does not fill",
+            defaultInt=500,
+            experimental=true
+        )
+        public int commandlog_timeout;
+        
+        @ConfigProperty(
+            description="If enabled, then the CommandLogWriter will keep track of various internal " +
+                        "profile statistics.",
+            defaultBoolean=false,
+            experimental=true
+        )
+        public boolean commandlog_profiling;
         
         // ----------------------------------------------------------------------------
         // MapReduce Options
@@ -462,7 +509,7 @@ public final class HStoreConf {
         @ConfigProperty(
             description="Max size of queued transactions before an HStoreSite will stop accepting new requests " +
                         "from clients and will send back a ClientResponse with the throttle flag enabled.",
-            defaultInt=150,
+            defaultInt=250,
             experimental=false
         )
         public int queue_incoming_max_per_partition;
@@ -486,7 +533,7 @@ public final class HStoreConf {
                         "value by this amount. The release limit will also be recalculated using the new value " +
                         "for ${site.txn_incoming_queue_max_per_partition}. Note that this will only occur after " +
                         "the first non-data loading transaction has been issued from the clients.",
-            defaultInt=10,
+            defaultInt=100,
             experimental=false
         )
         public int queue_incoming_increase;
@@ -494,22 +541,10 @@ public final class HStoreConf {
         @ConfigProperty(
             description="The maximum amount that the ${site.queue_incoming_max_per_partition} parameter " +
                         "can be increased by per partition.",
-            defaultInt=300,
+            defaultInt=500,
             experimental=false
         )
         public int queue_incoming_increase_max;
-        
-        @ConfigProperty(
-            description="If a transaction is rejected by an PartitionExecutor because its queue is full, then " +
-                        "this parameter determines what kind of response will be sent back to the client. " +
-                        "Setting this parameter to true causes the client to recieve an ABORT_THROTTLED " +
-                        "status response, which means it will wait for ${client.throttle_backoff} ms before " +
-                        "sending another transaction request. Otherwise, the client will recieve an " +
-                        "ABORT_REJECT status response and will be allowed to queue another transaction immediately.",
-            defaultBoolean=false,
-            experimental=false
-        )
-        public boolean queue_incoming_throttle;
         
         @ConfigProperty(
             description="Max size of queued transactions before an HStoreSite will stop accepting new requests " +
@@ -538,7 +573,7 @@ public final class HStoreConf {
                         "value by this amount. The release limit will also be recalculated using the new value " +
                         "for ${site.txn_incoming_queue_max_per_partition}. Note that this will only occur after " +
                         "the first non-data loading transaction has been issued from the clients.",
-            defaultInt=10,
+            defaultInt=100,
             experimental=false
         )
         public int queue_dtxn_increase;
@@ -546,22 +581,10 @@ public final class HStoreConf {
         @ConfigProperty(
             description="The maximum amount that the ${site.queue_dtxn_max_per_partition} parameter " +
                         "can be increased by per partition.",
-            defaultInt=300,
+            defaultInt=500,
             experimental=false
         )
         public int queue_dtxn_increase_max;
-        
-        @ConfigProperty(
-            description="If a transaction is rejected by the HStoreSite's distributed txn queue manager, then " +
-                        "this parameter determines what kind of response will be sent back to the client. " +
-                        "Setting this parameter to true causes the client to recieve an ABORT_THROTTLED " +
-                        "status response, which means it will wait for ${client.throttle_backoff} ms before " +
-                        "sending another transaction request. Otherwise, the client will recieve an " +
-                        "ABORT_REJECT status response and will be allowed to queue another transaction immediately.",
-            defaultBoolean=false,
-            experimental=false
-        )
-        public boolean queue_dtxn_throttle;
         
         // ----------------------------------------------------------------------------
         // Parameter Mapping Options
@@ -948,11 +971,19 @@ public final class HStoreConf {
         public boolean log_backup;
         
         @ConfigProperty(
+            description="Additional JVM arguments to include when launching each benchmark client process. " +
+            		    "These arguments will be automatically split and escaped based on spaces.",
+            defaultNull=true,
+            experimental=true
+        )
+        public String jvm_args;
+        
+        @ConfigProperty(
             description="The directory that benchmark project jars will be stored in.",
-            defaultString="",
+            defaultString=".",
             experimental=false
         )
-        public String jar_dir = ".";
+        public String jar_dir;
         
         @ConfigProperty(
             description="The amount of memory to allocate for each client process (in MB)",
@@ -964,17 +995,32 @@ public final class HStoreConf {
         @ConfigProperty(
             description="Default client host name",
             defaultString="${global.defaulthost}",
+            replacedBy="client.hosts",
             experimental=false
         )
-        public String host = HStoreConf.this.global.defaulthost;
+        @Deprecated
+        public String host;
+        
+        @ConfigProperty(
+            description="A semi-colon separated list of hostnames that the BenchmarkController will " +
+            		    "invoke benchmark clients on. Like the HStoreSite hosts, these machines must " +
+            		    "have passwordless SSH enabled and have the H-Store distribution installed in" +
+            		    "the same directory heirarchy as where the BenchmarkController was invoked from. " +
+            		    "Each client host represents a unique JVM that will spawn the number of client " +
+            		    "threads defined by the ${client.threads_per_host} parameter.", 
+            defaultString="${global.defaulthost}",
+            experimental=false
+        )
+        public String hosts;
 
         @ConfigProperty(
             description="The number of txns that client process submits (per ms). The underlying " +
                         "BenchmarkComponent will continue invoke the client driver's runOnce() method " +
                         "until it has submitted enough transactions to satisfy ${client.txnrate}. " +
-                        "If ${client.blocking} is disabled, then the total transaction rate for a benchmark run is " +
+                        "If ${client.blocking} is disabled, then the total transaction rate for a " +
+                        "benchmark invocation is " +
                         "${client.txnrate} * ${client.processesperclient} * ${client.count}.",
-            defaultInt=10000,
+            defaultInt=1000,
             experimental=false
         )
         public int txnrate;
@@ -987,11 +1033,22 @@ public final class HStoreConf {
         public String weights;
 
         @ConfigProperty(
-            description="Number of processes to use per client host.",
+            description="Number of benchmark client threads to use per client host.",
+            defaultInt=10,
+            replacedBy="client.threads_per_host",
+            experimental=false
+        )
+        @Deprecated
+        public int processesperclient;
+        
+        @ConfigProperty(
+            description="Number of benchmark client threads to invoke per client host. " +
+            		    "If ${client.shared_connection} is set to true, then all of these threads " +
+            		    "will share the same Client handle to the HStoreSite cluster.",
             defaultInt=10,
             experimental=false
         )
-        public int processesperclient;
+        public int threads_per_host;
         
         @ConfigProperty(
             description="Multiply the ${client.processesperclient} parameter by " +
@@ -1002,7 +1059,7 @@ public final class HStoreConf {
         public boolean processesperclient_per_partition;
         
         @ConfigProperty(
-            description="",
+            description="", // TODO
             defaultBoolean=false,
             experimental=false
         )
@@ -1070,7 +1127,7 @@ public final class HStoreConf {
             description="The scaling factor determines how large to make the target benchmark's data set. " +
                         "A scalefactor greater than one makes the data set larger, while less than one " +
                         "makes it smaller. Implementation depends on benchmark specification.",
-            defaultDouble=0.1,
+            defaultDouble=1,
             experimental=false
         )
         public double scalefactor;
@@ -1110,14 +1167,6 @@ public final class HStoreConf {
             experimental=false
         )
         public int tick_interval;
-
-        @ConfigProperty(
-            description="The amount of time (in ms) that the client will back-off from sending requests " +
-                        "to an HStoreSite when told that the site is throttled.",
-            defaultInt=500,
-            experimental=false
-        )
-        public int throttle_backoff;
         
         @ConfigProperty(
             description="If this enabled, then each DBMS will dump their entire database contents into " +
@@ -1261,6 +1310,13 @@ public final class HStoreConf {
             experimental=false
         )
         public boolean output_json;
+        
+        @ConfigProperty(
+            description="", // TODO
+            defaultBoolean=false,
+            experimental=false
+        )
+        public boolean profiling;
     }
     
     /**
@@ -1376,14 +1432,14 @@ public final class HStoreConf {
      */
     private static HStoreConf conf;
     
-    private final Map<Conf, Set<String>> loaded_params = new HashMap<Conf, Set<String>>();
+    private final Map<Conf, Set<String>> externalParams = new HashMap<Conf, Set<String>>();
     
     // ----------------------------------------------------------------------------
     // CONSTRUCTORS
     // ----------------------------------------------------------------------------
 
     private HStoreConf() {
-        // Empty configuration...
+        this.populateDependencies();
     }
     
     /**
@@ -1413,34 +1469,16 @@ public final class HStoreConf {
             }
         }
         
-        // ReplacedBy Updated
-        // XXX: Make automatic!
-        site.markov_fixed = site.exec_neworder_cheat;
-        
         // TODO: Remove
         if (site.markov_fixed) {
             site.exec_force_singlepartitioned = false;
             site.exec_force_localexecution = false;
         }
+        
+        this.populateDependencies();
     }
     
-    // ----------------------------------------------------------------------------
-    // LOADING METHODS
-    // ----------------------------------------------------------------------------
-    
-    public void set(String k, Object value) {
-        Matcher m = REGEX_PARSE.matcher(k);
-        boolean found = m.matches();
-        if (m == null || found == false) {
-            LOG.warn("Invalid key '" + k + "'");
-            return;
-        }
-        assert(m != null);
-        Conf handle = confHandles.get(m.group(1));
-        this.set(handle, m.group(2), value);
-    }
-    
-    private void set(Conf handle, String f_name, Object value) {
+    protected void set(Conf handle, String f_name, Object value) {
         Class<?> confClass = handle.getClass();
         assert(confClass != null);
         Field f = null;
@@ -1452,23 +1490,160 @@ public final class HStoreConf {
                                       handle.prefix, f_name));
             return;
         }
-        ConfigProperty cp = handle.getConfigProperties().get(f);
-        assert(cp != null) : "Missing ConfigProperty for " + f;
-        
+        this.set(handle, f, value);
+    }
+    
+    /**
+     * Set value for the given Conf handle's field 
+     * This method should always be used because it knows how to map values from 
+     * deprecated parameters to their new replacements. 
+     * @param handle
+     * @param f
+     * @param value
+     */
+    protected void set(Conf handle, Field f, Object value) {
         try {
             f.set(handle, value);
-            if (debug.get()) LOG.debug(String.format("SET %s.%s = %s",
-                                       handle.prefix, f_name, value));
+             if (debug.get())
+                LOG.debug(String.format("SET %s.%s = %s",
+                                        handle.prefix, f.getName(), value));
         } catch (Exception ex) {
-            throw new RuntimeException("Failed to set value '" + value + "' for field '" + f_name + "'", ex);
+            String msg = String.format("Failed to set value '%s' for '%s.%s'",
+                                       value, handle.prefix, f.getName()); 
+            throw new RuntimeException(msg, ex);
+        }
+        
+        // If this option has been deprecated and replaced, then we 
+        // need to also set the new configuration parameter
+        // Make sure that we don't do this for externally set parameters
+        ConfigProperty cp = handle.getConfigProperties().get(f);
+        assert(cp != null) : "Missing ConfigProperty for " + f;
+        if (cp.replacedBy() != null && cp.replacedBy().isEmpty() == false) {
+            if (debug.get())
+                LOG.debug(String.format("Automatically updating replaceBy parameter: %s.%s => %s",
+                                        handle.prefix, f.getName(), cp.replacedBy()));
+            this.set(cp.replacedBy(), value, true);
         }
     }
+    
+    /**
+     * This will set the values of any parameter that references another
+     * This can only be invoked after all of the Conf handles are initialized
+     */
+    protected void populateDependencies() {
+        if (debug.get()) LOG.debug("Populating dependent parameters");
+        
+        Pattern p = Pattern.compile("^\\$\\{" + REGEX_STR + "\\}", Pattern.CASE_INSENSITIVE);
+        for (Conf handle : confHandles.values()) {
+            for (Entry<Field, ConfigProperty> e : handle.getConfigProperties().entrySet()) {
+                // Skip anything that we set externally
+                Field f = e.getKey();
+                if (this.isMarkedExternal(handle, f.getName())) continue;
+                
+                // FIXME: This only works with strings
+                ConfigProperty cp = e.getValue();
+                String defaultString = cp.defaultString();
+                if (defaultString == null) continue;
+                
+                Matcher m = p.matcher(defaultString.trim());
+                boolean found = m.matches();
+                if (m == null || found == false) continue;
+                
+                Object value = this.get(m.group(1) + "." + m.group(2));
+                this.set(handle, f, value);
+                if (debug.get())
+                    LOG.debug(String.format("%s.%s [%s] ==> %s",
+                              handle.prefix, f.getName(), defaultString, value));
+            } // FOR
+        } // FOR
+    }
+    
+    /**
+     * Keep track of what parameters we set manually (either from a file or from 
+     * input arguments). This is needed so that we know what parameters to forward to
+     * remote clients and sites in the BenchmarkController
+     * @param handle
+     * @param f_name
+     */
+    protected void markAsExternal(Conf handle, String f_name) {
+        Set<String> s = this.externalParams.get(handle);
+        if (s == null) {
+            s = new HashSet<String>();
+            this.externalParams.put(handle, s);
+        }
+        s.add(f_name);
+    }
+    
+    protected boolean isMarkedExternal(Conf handle, String f_name) {
+        Set<String> s = this.externalParams.get(handle);
+        boolean ret = (s != null && s.contains(f_name));
+        if (debug.get())
+            LOG.debug(String.format("Checking whether %s.%s is externally set: %s",
+                               handle.prefix, f_name, ret));
+        return (ret);
+    }
+    
+    // ----------------------------------------------------------------------------
+    // REFLECTIVE ACCESS METHODS
+    // ----------------------------------------------------------------------------
+    
+    public Object get(String k) {
+        Matcher m = REGEX_PARSE.matcher(k);
+        boolean found = m.matches();
+        if (m == null || found == false) {
+            String msg = "Invalid configuration property '" + k + "'";
+            throw new RuntimeException(msg);
+        }
+        
+        Conf handle = confHandles.get(m.group(1));
+        Class<?> confClass = handle.getClass();
+        assert(confClass != null);
+        
+        String f_name = m.group(2);
+        Field f = null;
+        Object value = null;
+        try {
+            f = confClass.getField(f_name);
+            value = f.get(handle);
+        } catch (Exception ex) {
+            String msg = "Invalid configuration property '" + k + "'";
+            throw new RuntimeException(msg, ex);
+        }
+        return (value);
+    }
+    
+    public boolean set(String k, Object value) {
+        return this.set(k, value, false);
+    }
+        
+    protected boolean set(String k, Object value, boolean skip_external) {
+        Matcher m = REGEX_PARSE.matcher(k);
+        boolean found = m.matches();
+        if (m == null || found == false) {
+            String msg = "Invalid configuration property '" + k + "'";
+            throw new RuntimeException(msg);
+        }
+        assert(m != null);
+        Conf handle = confHandles.get(m.group(1));
+        
+        if (skip_external && this.isMarkedExternal(handle, m.group(2))) {
+            return (false);
+        }
+        this.set(handle, m.group(2), value);
+        return (true);
+    }
+    
+    // ----------------------------------------------------------------------------
+    // LOADING METHODS
+    // ----------------------------------------------------------------------------
     
     /**
      * 
      */
     @SuppressWarnings("unchecked")
     public void loadFromFile(File path) {
+        if (debug.get()) LOG.debug("Loading from input file [" + path + "]");
+        
         try {
             this.config = new PropertiesConfiguration(path);
         } catch (Exception ex) {
@@ -1516,36 +1691,41 @@ public final class HStoreConf {
                 LOG.warn(String.format("Unexpected value type '%s' for property '%s'", f_class.getSimpleName(), f_name));
             }
             
-            try {
-                f.set(handle, value);
-//                if (defaultValue != null && defaultValue.equals(value) == false) LOG.info(String.format("SET %s = %s", k, value));
-                if (debug.get()) LOG.debug(String.format("SET %s = %s", k, value));
-            } catch (Exception ex) {
-                throw new RuntimeException("Failed to set value '" + value + "' for field '" + f_name + "'", ex);
-            }
+            this.set(handle, f, value);
+            this.markAsExternal(handle, f_name);
         } // FOR
     }
     
     public void loadFromArgs(String args[]) {
+        if (debug.get()) LOG.debug("Loading from commandline input arguments");
         final Pattern split_p = Pattern.compile("=");
         
         final Map<String, String> argsMap = new ListOrderedMap<String, String>();
         for (int i = 0, cnt = args.length; i < cnt; i++) {
             final String arg = args[i];
             final String[] parts = split_p.split(arg, 2);
+            if (parts.length == 1) {
+                LOG.warn("Unexpected argument format '" + arg + "'");
+                continue;
+            }
+            
             String k = parts[0].toLowerCase();
             String v = parts[1];
             if (k.startsWith("-")) k = k.substring(1);
             
-            if (parts.length == 1) {
+            // 'hstore.tag' is special argument that we use in killstragglers.py 
+            if (k.equalsIgnoreCase("tag")) {
                 continue;
-            } else if (k.equalsIgnoreCase("tag")) {
+            // This command is undefined from the commandline
+            } else if (v.startsWith("${")) {
                 continue;
-            } else if (v.startsWith("${") || k.startsWith("#")) {
+            // Or this parameter is commented out in Eclipse
+            } else if (k.startsWith("#")) {
                 continue;
-            } else {
-                argsMap.put(k, v);
             }
+            
+            // We want it!
+            argsMap.put(k, v);
         } // FOR
         this.loadFromArgs(argsMap);
     }
@@ -1564,8 +1744,8 @@ public final class HStoreConf {
             assert(m != null);
 
             String confName = m.group(1);
-            Conf confHandle = confHandles.get(confName);
-            Class<?> confClass = confHandle.getClass();
+            Conf handle = confHandles.get(confName);
+            Class<?> confClass = handle.getClass();
             assert(confClass != null);
             Field f = null;
             String f_name = m.group(2).toLowerCase();
@@ -1575,7 +1755,7 @@ public final class HStoreConf {
                 if (debug.get()) LOG.warn("Invalid configuration property '" + k + "'. Ignoring...");
                 continue;
             }
-            ConfigProperty cp = confHandle.getConfigProperties().get(f);
+            ConfigProperty cp = handle.getConfigProperties().get(f);
             assert(cp != null) : "Missing ConfigProperty for " + f;
             Class<?> f_class = f.getType();
             Object value = null;
@@ -1594,26 +1774,16 @@ public final class HStoreConf {
                 LOG.warn(String.format("Unexpected value type '%s' for property '%s'", f_class.getSimpleName(), f_name));
                 continue;
             }
-            try {
-                f.set(confHandle, value);
-                if (debug.get()) LOG.debug(String.format("PARAM SET %s = %s", k, value));
-            } catch (Exception ex) {
-                throw new RuntimeException("Failed to set value '" + value + "' for field '" + f_name + "'", ex);
-            } finally {
-                Set<String> s = this.loaded_params.get(confHandle);
-                if (s == null) {
-                    s = new HashSet<String>();
-                    this.loaded_params.put(confHandle, s);
-                }
-                s.add(f_name);
-            }
+           
+            this.set(handle, f, value);
+            this.markAsExternal(handle, f_name);
         } // FOR
     }
     
     public Map<String, String> getParametersLoadedFromArgs() {
         Map<String, String> m = new HashMap<String, String>();
-        for (Conf confHandle : this.loaded_params.keySet()) {
-            for (String f_name : this.loaded_params.get(confHandle)) {
+        for (Conf confHandle : this.externalParams.keySet()) {
+            for (String f_name : this.externalParams.get(confHandle)) {
                 Object val = confHandle.getValue(f_name);
                 if (val != null) m.put(String.format("%s.%s", confHandle.prefix, f_name), val.toString());
             } // FOR
@@ -1650,7 +1820,7 @@ public final class HStoreConf {
      * @return
      */
     private boolean isLoadedFromArgs(Conf confHandle, String name) {
-        Set<String> params = this.loaded_params.get(confHandle);
+        Set<String> params = this.externalParams.get(confHandle);
         if (params != null) {
             return (params.contains(name));
         }
@@ -1693,8 +1863,18 @@ public final class HStoreConf {
     public synchronized static HStoreConf init(File f, String args[]) {
         if (conf != null) throw new RuntimeException("Trying to initialize HStoreConf more than once");
         conf = new HStoreConf();
-        if (f != null && f.exists()) conf.loadFromFile(f);
-        if (args != null) conf.loadFromArgs(args);
+        
+        boolean changed = false;
+        if (f != null && f.exists()) {
+            conf.loadFromFile(f);
+            changed = true;
+        }
+        if (args != null) {
+            conf.loadFromArgs(args);
+            changed = true;
+        }
+        if (changed) conf.populateDependencies();
+        
         return (conf);
     }
     

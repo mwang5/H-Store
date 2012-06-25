@@ -26,7 +26,9 @@
 package edu.brown.hstore;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
@@ -63,6 +65,9 @@ public abstract class HStore {
     }
 
     private static HStoreSite singleton;
+    private static String buildString;
+    private static String versionString;
+    
     
     /**
      * Initialize the HStore server.
@@ -203,5 +208,56 @@ public abstract class HStore {
         // ----------------------------------------------------------------------------
         LOG.info("Instantiating HStoreSite network connections...");
         hstore_site.run();
+    }
+    
+    public static String getBuildString() {
+        if (buildString == null) {
+            synchronized (HStore.class) {
+                if (buildString == null) readBuildInfo();
+            } // SYNCH
+        }
+        return (buildString);
+    }
+    
+    public static String getVersionString() {
+        if (versionString == null) {
+            synchronized (HStore.class) {
+                if (versionString == null) readBuildInfo();
+            } // SYNCH
+        }
+        return (versionString);
+    }
+    
+    private static void readBuildInfo() {
+        StringBuilder sb = new StringBuilder(64);
+        byte b = -1;
+        try {
+            InputStream buildstringStream =
+                ClassLoader.getSystemResourceAsStream("buildstring.txt");
+            while ((b = (byte) buildstringStream.read()) != -1) {
+                sb.append((char)b);
+            }
+            sb.append("\n");
+            String parts[] = sb.toString().split(" ", 2);
+            if (parts.length != 2) {
+                throw new RuntimeException("Invalid buildstring.txt file.");
+            }
+            versionString = parts[0].trim();
+            buildString = parts[1].trim();
+        } catch (Exception ignored) {
+            try {
+                InputStream buildstringStream = new FileInputStream("version.txt");
+                while ((b = (byte) buildstringStream.read()) != -1) {
+                    sb.append((char)b);
+                }
+                versionString = sb.toString().trim();
+            }
+            catch (Exception ignored2) {
+                throw new RuntimeException(ignored);
+            }
+        } finally {
+            if (buildString == null) buildString = "H-Store";
+        }
+        LOG.info("Build: " + versionString + " " + buildString);
     }
 }

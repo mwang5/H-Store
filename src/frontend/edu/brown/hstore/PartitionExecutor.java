@@ -53,6 +53,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.Semaphore;
@@ -117,6 +118,7 @@ import edu.brown.hstore.callbacks.TransactionPrepareCallback;
 import edu.brown.hstore.conf.HStoreConf;
 import edu.brown.hstore.interfaces.Loggable;
 import edu.brown.hstore.interfaces.Shutdownable;
+import edu.brown.hstore.internal.DeferredWork;
 import edu.brown.hstore.internal.FinishTxnMessage;
 import edu.brown.hstore.internal.InitializeTxnMessage;
 import edu.brown.hstore.internal.InternalMessage;
@@ -131,7 +133,6 @@ import edu.brown.hstore.txns.MapReduceTransaction;
 import edu.brown.hstore.txns.RemoteTransaction;
 import edu.brown.hstore.util.ArrayCache.IntArrayCache;
 import edu.brown.hstore.util.ArrayCache.LongArrayCache;
-import edu.brown.hstore.util.DeferredWork;
 import edu.brown.hstore.util.ParameterSetArrayCache;
 import edu.brown.hstore.util.QueryCache;
 import edu.brown.hstore.util.ThrottlingQueue;
@@ -242,7 +243,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
     private TransactionInitializer txnInitializer;
     
     // ----------------------------------------------------------------------------
-    // Partition Queues
+    // Partition-Specific Queues
     // ----------------------------------------------------------------------------
     
     /**
@@ -257,8 +258,13 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
     /**
      * This is the queue for work deferred .
      */
-    private final PartitionExecutorDeferredQueue deferred_queue;
+    private final ConcurrentLinkedQueue<DeferredWork> deferred_queue;
 
+    /**
+     * 
+     */
+    private final ConcurrentLinkedQueue<InternalMessage> new_queue = new ConcurrentLinkedQueue<InternalMessage>();
+    
     
     // ----------------------------------------------------------------------------
     // Internal Execution State
@@ -573,13 +579,12 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
         this.hstore_conf = HStoreConf.singleton();
         
         this.work_queue = new ThrottlingQueue<InternalMessage>(
-                new PartitionExecutorQueue(),
+                new PartitionMessageQueue(),
                 hstore_conf.site.queue_incoming_max_per_partition,
                 hstore_conf.site.queue_incoming_release_factor,
                 hstore_conf.site.queue_incoming_increase,
                 hstore_conf.site.queue_incoming_increase_max
         );
-        
         this.catalog = catalog;
         this.partition = CatalogUtil.getPartitionById(this.catalog, partitionId);
         assert(this.partition != null) : "Invalid Partition #" + partitionId;
@@ -677,7 +682,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
 
         // Defferable Work Queue
         if (hstore_conf.site.exec_deferrable_queries) {
-            this.deferred_queue = new PartitionExecutorDeferredQueue();
+            this.deferred_queue = new ConcurrentLinkedQueue<DeferredWork>();
         } else {
             this.deferred_queue = null;
         }
@@ -888,7 +893,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
         ByteBuffer serializedRequest = work.getSerializedRequest(); 
         Procedure catalog_proc = work.getProcedure();
         ParameterSet procParams = work.getProcParams();
-        RpcCallback<byte[]> done = work.getClientCallback(); 
+        RpcCallback<ClientResponseImpl> done = work.getClientCallback(); 
         long client_handle = work.getClientHandle();
         
         LocalTransaction ts = this.txnInitializer.initInvocation(
@@ -1018,6 +1023,24 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
         // Always invoke tick()
         this.tick();
         
+        // Check whether we have anything in our non-blocking queue
+        InternalMessage new_work = null;
+        boolean stopNow = false;
+        while ((new_work = this.new_queue.poll()) != null) {
+            this.work_queue.offer(new_work);
+
+            // Stop as soon as it's anything but a InitializeTxnMessage
+            if ((new_work instanceof InitializeTxnMessage) == false) {
+                stopNow = true;
+                break;
+            }
+        } // WHILE
+        if (stopNow) {
+            if (hstore_conf.site.exec_profiling) this.work_utility_time.stop();
+            return (false);
+        }
+        
+        
         // Try to free some memory
         // TODO(pavlo): Is this really safe to do?
         // this.tmp_fragmentParams.reset();
@@ -1026,7 +1049,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
         
         if (hstore_conf.site.exec_deferrable_queries == false) {
             if (hstore_conf.site.exec_profiling) this.work_utility_time.stop();
-            return false; // for now, unless andy wants to free up meomory in utilityWork
+            return (false);
         }
 
         boolean ret = false;
@@ -1066,7 +1089,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
         }
         
         // do other periodic work
-        m_snapshotter.doSnapshotWork(ee);
+        if (m_snapshotter != null) m_snapshotter.doSnapshotWork(ee);
     }
 
     @Override
@@ -1148,7 +1171,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
     public TransactionEstimator getTransactionEstimator() {
         return (this.t_estimator);
     }
-    public ThrottlingQueue<InternalMessage> getThrottlingQueue() {
+    public ThrottlingQueue<InternalMessage> getWorkQueue() {
         return (this.work_queue);
     }
     public final BackendTarget getBackendTarget() {
@@ -1395,7 +1418,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
         assert(ts.isInitialized());
         
         WorkFragmentMessage work = ts.getWorkFragmentMessage(fragment);
-        this.work_queue.add(work);
+        this.work_queue.offer(work, true);
         if (d) LOG.debug(String.format("%s - Added distributed txn %s to front of partition %d work queue [size=%d]",
                                        ts, work.getClass().getSimpleName(), this.partitionId, this.work_queue.size()));
     }
@@ -1408,7 +1431,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
     public void queueFinish(AbstractTransaction ts, Status status) {
         assert(ts.isInitialized());
         FinishTxnMessage work = ts.getFinishTxnMessage(status);
-        this.work_queue.add(work);
+        this.work_queue.offer(work, true);
         if (d) LOG.debug(String.format("%s - Added distributed %s to front of partition %d work queue [size=%d]",
                                        ts, work.getClass().getSimpleName(), this.partitionId, this.work_queue.size()));
     }
@@ -1424,8 +1447,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
     public boolean queueNewTransaction(ByteBuffer serializedRequest, 
                                          Procedure catalog_proc,
                                          ParameterSet procParams,
-                                         RpcCallback<byte[]> clientCallback) {
-        
+                                         RpcCallback<ClientResponseImpl> clientCallback) {
         
         if (d) LOG.debug(String.format("Queuing new %s transaction execution request on partition %d " +
                                        "[currentDtxn=%s, mode=%s]",
@@ -1436,9 +1458,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                                                              catalog_proc,
                                                              procParams,
                                                              clientCallback);
-        boolean ret = this.work_queue.offer(work);
-        
-        return (ret);
+        return (this.work_queue.offer(work));
     }
     
     /**
@@ -3010,7 +3030,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                 this.hstore_site.transactionRequeue(ts, status);
             }
             // Use the separate post-processor thread to send back the result
-            else if (hstore_conf.site.exec_postprocessing_thread) {
+            else if (hstore_conf.site.exec_postprocessing_threads) {
                 if (t) LOG.trace(String.format("%s - Sending ClientResponse to post-processing thread [status=%s]",
                                                ts, cresponse.getStatus()));
                 this.hstore_site.queueClientResponse(ts, cresponse);
@@ -3019,7 +3039,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
             else {
                 // We have to mark it as loggable to prevent the response
                 // from getting sent back to the client
-                if (hstore_conf.site.exec_command_logging) ts.markLogEnabled();
+                if (hstore_conf.site.commandlog_enable) ts.markLogEnabled();
                 
                 if (hstore_conf.site.exec_profiling) this.work_network_time.start();
                 this.hstore_site.sendClientResponse(ts, cresponse);
@@ -3281,7 +3301,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
             }
             
             try {
-                if (hstore_conf.site.exec_postprocessing_thread) {
+                if (hstore_conf.site.exec_postprocessing_threads) {
                     if (t) LOG.trace(String.format("Passing queued ClientResponse for %s to post-processing thread [status=%s]", ts, cr.getStatus()));
                     hstore_site.queueClientResponse(ts, cr);
                 } else {

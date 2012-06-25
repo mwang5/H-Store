@@ -29,7 +29,6 @@ import edu.brown.hstore.interfaces.Shutdownable;
 import edu.brown.hstore.txns.AbstractTransaction;
 import edu.brown.hstore.txns.LocalTransaction;
 import edu.brown.hstore.txns.TransactionProfile;
-import edu.brown.hstore.util.TransactionPostProcessor;
 import edu.brown.hstore.util.ThrottlingQueue;
 import edu.brown.hstore.util.TxnCounter;
 import edu.brown.logging.LoggerUtil;
@@ -103,6 +102,7 @@ public class HStoreSiteStatus implements Runnable, Shutdownable {
     private Integer processing_max = null;
     
     private Thread self;
+    private long startTime;
     
     private ProfileMeasurement lastNetworkIdle = null;
     private ProfileMeasurement lastNetworkProcessing = null;
@@ -168,6 +168,7 @@ public class HStoreSiteStatus implements Runnable, Shutdownable {
             public void update(EventObservable<HStoreSite> arg0, HStoreSite arg1) {
 //                if (debug.get())
                 LOG.info(arg1.getSiteName() + " - " +HStoreConstants.SITE_FIRST_TXN);
+                startTime = System.currentTimeMillis();
             }
         });
         
@@ -196,7 +197,7 @@ public class HStoreSiteStatus implements Runnable, Shutdownable {
             if (this.hstore_site.isRunning() == false) continue;
 
             // Out we go!
-            //this.printSnapshot();
+            this.printStatus();
             
             // If we're not making progress, bring the whole thing down!
             int completed = TxnCounter.COMPLETED.get();
@@ -210,8 +211,8 @@ public class HStoreSiteStatus implements Runnable, Shutdownable {
         } // WHILE
     }
     
-    private void printSnapshot() {
-        LOG.info("STATUS SNAPSHOT #" + this.snapshot_ctr.incrementAndGet() + "\n" +
+    private void printStatus() {
+        LOG.info("STATUS #" + this.snapshot_ctr.incrementAndGet() + "\n" +
                  StringUtil.box(this.snapshot(hstore_conf.site.status_show_txn_info,
                                               hstore_conf.site.status_show_executor_info,
                                               hstore_conf.site.status_show_thread_info,
@@ -301,9 +302,43 @@ public class HStoreSiteStatus implements Runnable, Shutdownable {
         ProfileMeasurement pm = null;
         String value = null;
         
-        LinkedHashMap<String, Object> m_exec = new LinkedHashMap<String, Object>();
-        m_exec.put("Completed Txns", TxnCounter.COMPLETED.get());
+        LinkedHashMap<String, Object> siteInfo = new LinkedHashMap<String, Object>();
+        if (TxnCounter.COMPLETED.get() > 0) {
+            siteInfo.put("Completed Txns", TxnCounter.COMPLETED.get());
+        }
         
+        // ClientInterface
+        ClientInterface ci = hstore_site.getClientInterface();
+        if (ci != null) {
+            siteInfo.put("# of Connections", ci.getConnectionCount());
+            
+            value = String.format("%d txns [limit=%d, release=%d, bytes=%d]%s",
+                                  ci.getPendingTxnCount(),
+                                  ci.getMaxPendingTxnCount(),
+                                  ci.getReleasePendingTxnCount(),
+                                  ci.getPendingTxnBytes(),
+                                  (ci.hasBackPressure() ? " / *THROTTLED*" : ""));
+            siteInfo.put("Client Interface Queue", value);
+            
+            if (hstore_conf.site.network_profiling) {
+                // Compute the approximate arrival rate of transaction
+                // requests per second from clients
+                pm = ci.getNetworkProcessing();
+                double totalTime = System.currentTimeMillis() - startTime;
+                double arrivalRate = (totalTime > 0 ? (pm.getInvocations() / totalTime) : 0d);
+                
+                value = String.format("%.02f txn/sec [total=%d]", arrivalRate, pm.getInvocations());
+                siteInfo.put("Arrival Rate", value);
+                
+                pm = ci.getNetworkBackPressureOn();
+                siteInfo.put("Back Pressure Off", formatProfileMeasurements(pm, null, true, false));
+                
+                pm = ci.getNetworkBackPressureOff();
+                siteInfo.put("Back Pressure On", formatProfileMeasurements(pm, null, true, false));
+            }
+        }
+        
+        // TransactionQueueManager
         TransactionQueueManager queueManager = hstore_site.getTransactionQueueManager();
         TransactionQueueManager.DebugContext queueManagerDebug = queueManager.getDebugContext();
         
@@ -335,7 +370,7 @@ public class HStoreSiteStatus implements Runnable, Shutdownable {
            }
         } // FOR
         
-        m_exec.put("InFlight Txns", String.format("%d total / %d dtxn / %d finished [totalMin=%d, totalMax=%d]",
+        siteInfo.put("InFlight Txns", String.format("%d total / %d dtxn / %d finished [totalMin=%d, totalMax=%d]",
                         inflight_cur,
                         inflight_local,
                         inflight_finished,
@@ -344,7 +379,7 @@ public class HStoreSiteStatus implements Runnable, Shutdownable {
         ));
         
         if (this.cur_finishedTxns != null) {
-            m_exec.put("Zombie Txns", inflight_zombies +
+            siteInfo.put("Zombie Txns", inflight_zombies +
                                       (inflight_zombies > 0 ? " - " + CollectionUtil.first(this.cur_finishedTxns) : ""));
 //            for (AbstractTransaction ts : this.cur_finishedTxns) {
 //                // HACK
@@ -361,16 +396,16 @@ public class HStoreSiteStatus implements Runnable, Shutdownable {
         if (hstore_conf.site.network_profiling) {
             pm = this.hstore_site.getNetworkIdleTime();
             value = this.formatProfileMeasurements(pm, this.lastNetworkIdle, true, true);
-            m_exec.put("Network Idle", value);
+            siteInfo.put("Network Idle", value);
             this.lastNetworkIdle = new ProfileMeasurement(pm);
             
             pm = this.hstore_site.getNetworkProcessorTime();
             value = this.formatProfileMeasurements(pm, this.lastNetworkProcessing, true, true);
-            m_exec.put("Network Processing", value);
+            siteInfo.put("Network Processing", value);
             this.lastNetworkProcessing = new ProfileMeasurement(pm);
         }
         
-        if (hstore_conf.site.exec_postprocessing_thread) {
+        if (hstore_conf.site.exec_postprocessing_threads) {
             int processing_cur = hstore_site.getQueuedResponseCount();
             if (processing_min == null || processing_cur < processing_min) processing_min = processing_cur;
             if (processing_max == null || processing_cur > processing_max) processing_max = processing_cur;
@@ -386,10 +421,10 @@ public class HStoreSiteStatus implements Runnable, Shutdownable {
                                      pm.getAverageThinkTimeMS());
             } // FOR
             
-            m_exec.put("Post-Processing Txns", val);
+            siteInfo.put("Post-Processing Txns", val);
         }
 
-        return (m_exec);
+        return (siteInfo);
     }
 
     // ----------------------------------------------------------------------------
@@ -417,7 +452,7 @@ public class HStoreSiteStatus implements Runnable, Shutdownable {
             partitionLabels.put(partition, partitionLabel);
             
             PartitionExecutor es = e.getValue();
-            ThrottlingQueue<?> es_queue = es.getThrottlingQueue();
+            ThrottlingQueue<?> es_queue = es.getWorkQueue();
             ThrottlingQueue<?> dtxn_queue = queueManagerDebug.getInitQueue(partition);
             AbstractTransaction current_dtxn = es.getCurrentDtxn();
             
@@ -431,9 +466,10 @@ public class HStoreSiteStatus implements Runnable, Shutdownable {
                                     es.getWaitingQueueSize()), null);
             
             // Execution Info
-            String status = String.format("%-5s [limit=%d, release=%d]%s",
-                                          es_queue.size(), es_queue.getQueueMax(), es_queue.getQueueRelease(),
-                                          (es_queue.isThrottled() ? " *THROTTLED*" : ""));
+            String status = null;
+            status = String.format("%-5s [limit=%d, release=%d]%s / ",
+                                   es_queue.size(), es_queue.getQueueMax(), es_queue.getQueueRelease(),
+                                   (es_queue.isThrottled() ? " *THROTTLED*" : ""));
             m.put("Exec Queue", status);
             
             // TransactionQueueManager Info
@@ -1005,7 +1041,7 @@ public class HStoreSiteStatus implements Runnable, Shutdownable {
         } // FOR
         
 //        hstore_conf.site.status_show_thread_info = true;
-        this.printSnapshot();
+        this.printStatus();
         
         // Quick Sanity Check!
 //        for (int i = 0; i < 2; i++) {
