@@ -28,16 +28,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-import org.voltdb.VoltDB;
 import org.apache.log4j.Logger;
 import org.voltdb.ParameterSet;
 import org.voltdb.VoltSystemProcedure.SynthesizedPlanFragment;
 import org.voltdb.VoltTableRow;
-import org.voltdb.catalog.Catalog;
-import org.voltdb.catalog.CatalogType;
 import org.voltdb.catalog.Cluster;
 import org.voltdb.catalog.Host;
-import org.voltdb.catalog.Site;
+import org.voltdb.catalog.Partition;
 import org.voltdb.catalog.Table;
 import org.voltdb.sysprocs.SysProcFragmentId;
 import org.voltdb.utils.Pair;
@@ -174,8 +171,8 @@ public class PartitionedTableSaveFileState extends TableSaveFileState
             Collection<Integer> sitesAtHost = new ArrayList<Integer>();
             for(int j=0; j<hosts_value.length; j++){
                 if (hosts_value[j].getId() == nextHost) {
-                    List<Site> siteList = CatalogUtil.getSitesForHost(hosts_value[j]);
-                    for (Site site: siteList) {
+                    Collection<Partition> siteList = CatalogUtil.getPartitionsForHost(hosts_value[j]);
+                    for (Partition site: siteList) {
                         sitesAtHost.add(site.getId());
                     }   
                 }
@@ -221,7 +218,7 @@ public class PartitionedTableSaveFileState extends TableSaveFileState
         plan_fragment.fragmentId =
             SysProcFragmentId.PF_restoreDistributePartitionedTable;
         plan_fragment.multipartition = false;
-        // plan_fragment.siteId = distributorSiteId;
+        plan_fragment.destPartitionId = distributorSiteId;
         plan_fragment.outputDependencyIds = new int[]{ result_dependency_id };
         plan_fragment.inputDependencyIds = new int[] {};
         addPlanDependencyId(result_dependency_id);

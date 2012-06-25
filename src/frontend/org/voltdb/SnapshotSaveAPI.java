@@ -62,7 +62,6 @@ public class SnapshotSaveAPI
     {
         LOG.trace("Creating snapshot target and handing to EEs");
         final VoltTable result = SnapshotSave.constructNodeResultsTable();
-
         // One site wins the race to create the snapshot targets, populating
         // m_taskListsForSites for the other sites and creating an appropriate
         // number of snapshot permits
@@ -72,10 +71,11 @@ public class SnapshotSaveAPI
 
         // All sites wait for a permit to start their individual snapshot tasks
         VoltTable error = acquireSnapshotPermit(context, hostname, result);
-        if (error != null) {
-            return error;
-        }
+        if (error != null) {   
 
+            return error;
+
+        }
         synchronized (SnapshotSiteProcessor.m_taskListsForSites) {
             final Deque<SnapshotTableTask> m_taskList = SnapshotSiteProcessor.m_taskListsForSites.poll();
             if (m_taskList == null) {
@@ -133,9 +133,7 @@ public class SnapshotSaveAPI
             String hostname, final VoltTable result) {
         {
             //final int numLocalSites = VoltDB.instance().getLocalSites().values().size();
-            //final int numLocalSites = CatalogUtil.getNumberOfPartitions(context.getCatalog());
             final int numLocalSites= HStore.instance().getLocalPartitionIdArray().length;
-            
             /*
              * Used to close targets on failure
              */
@@ -161,14 +159,14 @@ public class SnapshotSaveAPI
                             context.getExecutionSite().getHostId(),
                             file_path,
                             file_nonce,
-                            tables.toArray(new Table[0]));
+                            tables.toArray(new Table[0]), context.getExecutionSite());
                 for (final Table table : SnapshotUtil.getTablesToSave(context.getDatabase()))
                 {
                     String canSnapshot = "SUCCESS";
                     String err_msg = "";
                     final File saveFilePath =
                         SnapshotUtil.constructFileForTable(table, file_path, file_nonce,
-                                              context.getSite().getHost().getTypeName());
+                                              context.getSite().getHost().getTypeName(), context.getExecutionSite());
                     SnapshotDataTarget sdt = null;
                     try {
                         sdt =
@@ -258,7 +256,7 @@ public class SnapshotSaveAPI
                     if (!partitionedSnapshotTasks.isEmpty() || !replicatedSnapshotTasks.isEmpty()) {
                         SnapshotSiteProcessor.ExecutionSitesCurrentlySnapshotting.set(
                                 //VoltDB.instance().getLocalSites().values().size());
-                        		CatalogUtil.getSitesForHost(context.getSite().getHost()).size());
+                                HStore.instance().getLocalPartitionIdArray().length);
                         for (int ii = 0; ii < numLocalSites; ii++) {
                             SnapshotSiteProcessor.m_taskListsForSites.add(new ArrayDeque<SnapshotTableTask>());
                         }
@@ -311,14 +309,15 @@ public class SnapshotSaveAPI
 
     private VoltTable acquireSnapshotPermit(SystemProcedureExecutionContext context,
             String hostname, final VoltTable result) {
-        try {
-            SnapshotSiteProcessor.m_snapshotPermits.acquire();
+        try {            
+            SnapshotSiteProcessor.m_snapshotPermits.acquire();     
         } catch (Exception e) {
             result.addRow(context.getSite().getHost().getId(),
                     hostname,
                     "",
                     "FAILURE",
                     e.toString());
+
             return result;
         } finally {
             /*

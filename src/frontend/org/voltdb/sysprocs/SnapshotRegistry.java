@@ -23,6 +23,9 @@ import java.util.Iterator;
 
 import org.voltdb.sysprocs.saverestore.SnapshotUtil;
 
+import edu.brown.hstore.HStore;
+import edu.brown.hstore.PartitionExecutor;
+
 /**
  * The snapshot registry contains information about snapshots that executed
  * while the system was running.
@@ -54,7 +57,7 @@ public class SnapshotRegistry {
         private final HashMap< String, Table> tables = new HashMap< String, Table>();
 
         private Snapshot(long startTime, int hostId, String path, String nonce,
-                         org.voltdb.catalog.Table tables[]) {
+                         org.voltdb.catalog.Table tables[], PartitionExecutor ee) {
             timeStarted = startTime;
             this.path = path;
             this.nonce = nonce;
@@ -64,7 +67,7 @@ public class SnapshotRegistry {
                     String filename =
                         SnapshotUtil.constructFilenameForTable(table,
                                                                nonce,
-                                                               Integer.toString(hostId));
+                                                               Integer.toString(hostId), ee);
                     this.tables.put(table.getTypeName(), new Table(table.getTypeName(), filename));
                 }
             }
@@ -137,8 +140,8 @@ public class SnapshotRegistry {
         }
     }
 
-    public static synchronized Snapshot startSnapshot(long startTime, int hostId, String path, String nonce, org.voltdb.catalog.Table tables[]) {
-        final Snapshot s = new Snapshot(startTime, hostId, path, nonce, tables);
+    public static synchronized Snapshot startSnapshot(long startTime, int hostId, String path, String nonce, org.voltdb.catalog.Table tables[], PartitionExecutor ee) {
+        final Snapshot s = new Snapshot(startTime, hostId, path, nonce, tables, ee);
 
         m_snapshots.add(s);
         if (m_snapshots.size() > m_maxStatusHistory) {

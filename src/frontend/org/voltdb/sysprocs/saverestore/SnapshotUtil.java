@@ -47,6 +47,8 @@ import org.voltdb.utils.Pair;
 import org.voltdb.utils.DBBPool.BBContainer;
 
 import edu.brown.catalog.CatalogUtil;
+import edu.brown.hstore.HStore;
+import edu.brown.hstore.PartitionExecutor;
 import edu.brown.hstore.PartitionExecutor.SystemProcedureExecutionContext;
 
 public class SnapshotUtil {
@@ -267,6 +269,8 @@ public class SnapshotUtil {
         }
 
         for (File f : directory.listFiles(filter)) {
+            if (f.length() == 0)
+                continue;
             if (f.isDirectory()) {
                 if (!f.canRead() || !f.canExecute()) {
                     System.err.println("Warning: Skipping directory " + f.getPath()
@@ -595,10 +599,13 @@ public class SnapshotUtil {
     */
     public static final String constructFilenameForTable(Table table,
                                                          String fileNonce,
-                                                         String hostId)
+                                                         String hostId,
+                                                         PartitionExecutor ee)
     {
+
+        
         StringBuilder filename_builder = new StringBuilder(fileNonce);
-        filename_builder.append("-");
+        filename_builder.append("-partition_" + ee.getPartitionId() + "-");
         filename_builder.append(table.getTypeName());
         if (!table.getIsreplicated())
         {
@@ -612,10 +619,11 @@ public class SnapshotUtil {
     public static final File constructFileForTable(Table table,
             String filePath,
             String fileNonce,
-            String hostId)
+            String hostId,
+            PartitionExecutor ee)
     {
         return new File(filePath, SnapshotUtil.constructFilenameForTable(
-            table, fileNonce, hostId));
+            table, fileNonce, hostId, ee));
     }
 
     /**
@@ -628,11 +636,11 @@ public class SnapshotUtil {
 
     public static final List<Table> getTablesToSave(Database database)
     {
-        CatalogMap<Table> all_tables = database.getTables();
+        Collection<Table> all_tables = CatalogUtil.getDataTables(database);
         ArrayList<Table> my_tables = new ArrayList<Table>();
         for (Table table : all_tables)
         {
-            // Make a list of all non-materialized, non-export only tables
+            // Make a list of all non-materialized, non-export onley tables
             if ((table.getMaterializer() != null))
             {
                 continue;

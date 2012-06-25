@@ -18,25 +18,29 @@
 package org.voltdb.sysprocs.saverestore;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
+import org.apache.log4j.Logger;
 import org.voltdb.ParameterSet;
 import org.voltdb.VoltDB;
 import org.voltdb.VoltTableRow;
 import org.voltdb.VoltSystemProcedure.SynthesizedPlanFragment;
 import org.voltdb.catalog.Cluster;
 import org.voltdb.catalog.Host;
-import org.voltdb.catalog.Site;
+import org.voltdb.catalog.Partition;
 import org.voltdb.catalog.Table;
 import org.voltdb.sysprocs.SysProcFragmentId;
 
 import edu.brown.catalog.CatalogUtil;
 import edu.brown.hstore.HStore;
+import edu.brown.hstore.HStoreSite;
 
 public class ReplicatedTableSaveFileState extends TableSaveFileState
 {
+    private static final Logger LOG = Logger.getLogger(ReplicatedTableSaveFileState.class);
+    
     ReplicatedTableSaveFileState(String tableName, int allowExport)
     {
         super(tableName, allowExport);
@@ -68,21 +72,20 @@ public class ReplicatedTableSaveFileState extends TableSaveFileState
     public SynthesizedPlanFragment[]
     generateRestorePlan(Table catalogTable)
     {            
+        LOG.info("Total partitions for Replicated Table: " + getTableName());
         Cluster catalog_clus = CatalogUtil.getCluster(HStore.instance().getCatalog());
         Host[] hosts_value = catalog_clus.getHosts().values();
-//        for (int hostId : m_hostsWithThisTable) {  
-//            for (final Host h : hosts_value) {
-//                if (h.getId() == hostId){
-            
-                    List<Site> siteList = CatalogUtil.getSitesForHost(hosts_value[0]);
-                    for (Site i : siteList) {
-                            m_sitesWithThisTable.add(i.getId());
-//                    }      
-//                }
+        for (int hostId = 0; hostId < m_hostsWithThisTable.size(); hostId++) {  
+            for (int i = 0; i < hosts_value.length; i++)
+                if (hosts_value[i].getId() == hostId) {
+                    Collection<Partition> siteList = CatalogUtil.getPartitionsForHost(hosts_value[i]);
+                    for (Partition st : siteList) {
+                            m_sitesWithThisTable.add(st.getId());
+                    }      
+                }
 //            m_sitesWithThisTable.addAll(VoltDB.instance().getCatalogContext().
 //                                        siteTracker.getLiveExecutionSitesForHost(hostId));
-//        }
-                    }
+        }
 
         SynthesizedPlanFragment[] restore_plan = null;
         if (catalogTable.getIsreplicated())
@@ -110,15 +113,16 @@ public class ReplicatedTableSaveFileState extends TableSaveFileState
     private SynthesizedPlanFragment[]
     generateReplicatedToReplicatedPlan()
     {
+        SynthesizedPlanFragment[] restore_plan = null;
         Cluster catalog_clus = CatalogUtil.getCluster(HStore.instance().getCatalog());
         Host[] hosts_value = catalog_clus.getHosts().values();
-        List<Site> siteList = CatalogUtil.getSitesForHost(hosts_value[0]);
         Set<Integer> execution_site_ids = new HashSet<Integer>();
-        for (Site site: siteList) {
-            execution_site_ids.add(site.getId());
+        for (int i =0; i < hosts_value.length; i++) {
+            Collection<Partition> siteList = CatalogUtil.getPartitionsForHost(hosts_value[i]);         
+            for (Partition site: siteList) {
+                execution_site_ids.add(site.getId());
+            }
         }
-
-        SynthesizedPlanFragment[] restore_plan = null;
 //        Set<Integer> execution_site_ids = 
 //            VoltDB.instance().getCatalogContext().siteTracker.getExecutionSiteIds();
         Set<Integer> sites_missing_table =
@@ -133,7 +137,7 @@ public class ReplicatedTableSaveFileState extends TableSaveFileState
         {
             restore_plan[restore_plan_index] =
                 constructLoadReplicatedTableFragment();
-            // XXX restore_plan[restore_plan_index].siteId = site_id;
+            restore_plan[restore_plan_index].destPartitionId = site_id;
             ++restore_plan_index;
         }
         for (Integer site_id : sites_missing_table)
@@ -190,7 +194,7 @@ public class ReplicatedTableSaveFileState extends TableSaveFileState
         plan_fragment.fragmentId =
             SysProcFragmentId.PF_restoreDistributeReplicatedTable;
         plan_fragment.multipartition = false;
-        // XXX plan_fragment.siteId = sourceSiteId;
+        plan_fragment.destPartitionId = sourceSiteId;
         plan_fragment.outputDependencyIds = new int[]{ result_dependency_id };
         plan_fragment.inputDependencyIds = new int[] {};
         addPlanDependencyId(result_dependency_id);

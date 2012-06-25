@@ -193,7 +193,7 @@ public class SnapshotSave extends VoltSystemProcedure
                 {
                     File saveFilePath =
                         SnapshotUtil.constructFileForTable(table, file_path, file_nonce,
-                                              context.getSite().getHost().getTypeName());
+                                              context.getSite().getHost().getTypeName(), context.getExecutionSite());
                     LOG.trace("Host ID " + context.getHost().getId() +
                                     " table: " + table.getTypeName() +
                                     " to path: " + saveFilePath);

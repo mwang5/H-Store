@@ -95,7 +95,6 @@ public class SnapshotRestore extends VoltSystemProcedure
         if (!m_initializedTableSaveFiles.add(tableName)) {
             return;
         }
-        HStore.instance().getCatalog();
         for (int originalHostId : originalHostIds) {
             final File f = getSaveFileForPartitionedTable( filePath, fileNonce, tableName, originalHostId);
             m_saveFiles.offer(
@@ -174,7 +173,6 @@ public class SnapshotRestore extends VoltSystemProcedure
                                   this);
         m_siteId = site.getSiteId();
         m_hostId = site.getHostId();
-        m_exor = site;
     }
 
     @Override
@@ -206,6 +204,8 @@ public class SnapshotRestore extends VoltSystemProcedure
                 File[] savefiles = retrieveRelevantFiles(m_filePath, m_fileNonce);
                 for (File file : savefiles)
                 {
+                    if (file.length() == 0)
+                        continue;
                     TableSaveFile savefile = null;
                     try
                     {
@@ -233,6 +233,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                                               is_replicated,
                                               pid,
                                               savefile.getTotalPartitions());
+                                //LOG.info(result);
                             }
                         } finally {
                             savefile.close();
@@ -1105,7 +1106,6 @@ public class SnapshotRestore extends VoltSystemProcedure
         return this.database.getTables().get(tableName);
     }
 
-    private PartitionExecutor m_exor;
     private int m_siteId;
     private int m_hostId;
     private static volatile String m_filePath;

@@ -2656,7 +2656,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
         //  (5) The latch for this round is still greater than zero
         while (ts.hasPendingError() == false && 
                (first == true || ts.stillHasWorkFragments() || (latch != null && latch.getCount() > 0))) {
-            if (t) LOG.trace(String.format("%s - [first=%s, stillHasWorkFragments=%s, latch=%s]",
+            if (t) LOG.trace(String.format("%s - [first=%s, stillHasWorkFragments=%s, size = %d, latch=%s]",
                                            ts, first, ts.stillHasWorkFragments(), queue.size(), latch));
             
             // If this is the not first time through the loop, then poll the queue to get our list of fragments
