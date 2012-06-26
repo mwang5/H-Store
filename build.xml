@@ -955,7 +955,6 @@ TEST CASES
                 <exclude name="**/TestMaliciousClientSuite.class" />
                 <exclude name="**/TestELTSuite.class" />
                 <exclude name="**/TestFailuresSuite.class" />
-                <exclude name="**/TestSaveRestoreSysprocSuite.class" />
                 <exclude name="**/TestPrefetchableSuite.class" />
                 
                 <!-- Tests that use too much memory -->
@@ -1043,7 +1042,6 @@ TEST CASES
                 <exclude name="**/TestMaliciousClientSuite.class" />
                 <exclude name="**/TestELTSuite.class" />
                 <exclude name="**/TestFailuresSuite.class" />
-                <exclude name="**/TestSaveRestoreSysprocSuite.class" />
                 <exclude name="**/TestPrefetchableSuite.class" />
 
                 <!-- Tests that use too much memory -->
@@ -1124,7 +1122,6 @@ TEST CASES
                     <exclude name="**/TestFailuresSuite.class" />
                     <exclude name="**/TestPlansGroupBySuite.class" />
                     <exclude name="**/TestRollbackSuite.class" />
-                    <exclude name="**/TestSaveRestoreSysprocSuite.class" />
                     <exclude name="**/TestPrefetchableSuite.class" />
                 </fileset>
             </tests>
