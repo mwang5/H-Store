@@ -33,6 +33,7 @@ import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
+
 import org.voltdb.BackendTarget;
 import org.voltdb.DefaultSnapshotDataTarget;
 import org.voltdb.VoltTable;
@@ -113,47 +114,6 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         {
             tmp_file.delete();
         }
-    }
-    
-    private void corruptTestFiles(java.util.Random r) throws Exception
-    {
-        FilenameFilter cleaner = new FilenameFilter()
-        {
-            public boolean accept(File dir, String file)
-            {
-                return file.startsWith(TESTNONCE);
-            }
-        };
-
-        File tmp_dir = new File(TMPDIR);
-        File[] tmp_files = tmp_dir.listFiles(cleaner);
-        for (int i = 0; i < tmp_files.length; i++) {
-            if (tmp_files[i].length() == 0) 
-                tmp_files[i].delete();
-        }
-        File[] tmp_files_1 = tmp_dir.listFiles(cleaner);
-        
-        int tmpIndex = r.nextInt(tmp_files_1.length);
-        byte corruptValue[] = new byte[1];
-        r.nextBytes(corruptValue);
-        java.io.RandomAccessFile raf = new java.io.RandomAccessFile( tmp_files_1[tmpIndex], "rw");
-        int corruptPosition = r.nextInt((int)raf.length());
-        raf.seek(corruptPosition);
-        byte currentValue = raf.readByte();
-        while (currentValue == corruptValue[0]) {
-            r.nextBytes(corruptValue);
-        }
-        System.out.println("Corrupting file " + tmp_files_1[tmpIndex].getName() +
-                " at byte " + corruptPosition + " with value " + corruptValue[0]);
-        raf.seek(corruptPosition);
-        raf.write(corruptValue);
-        raf.close();
-    }
-    
-    private VoltTable createReplicatedTable(int numberOfItems,
-            int indexBase,
-            StringBuilder sb) {
-        return createReplicatedTable(numberOfItems, indexBase, sb, false);
     }
     
     private VoltTable createReplicatedTable(int numberOfItems,
@@ -318,37 +278,6 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
         }
         assertEquals( 3, results[0].getRowCount());
         return results;
-    }
-    
-    private void checkTable(Client client, String tableName, 
-            String orderByCol, int expectedRows)
-    {
-        if (expectedRows > 200000)
-        {
-            System.out.println("Table too large to retrieve with select *");
-            System.out.println("Skipping integrity check");
-        }
-        VoltTable result = null;
-        try
-        {
-            result = client.callProcedure("SaveRestoreSelect", tableName).getResults()[0];
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-        final int rowCount = result.getRowCount();
-        assertEquals(expectedRows, rowCount);
-
-        int i = 0;
-        while (result.advanceRow())
-        {
-            assertEquals(i, result.getLong(0));
-            assertEquals("name_" + i, result.getString(1));
-            assertEquals(i, result.getLong(2));
-            assertEquals(new Double(i), result.getDouble(3));
-            ++i;
-        }
     }
     
     private void validateSnapshot(boolean expectSuccess) {
@@ -724,20 +653,20 @@ public class TestSaveRestoreSysprocSuite extends RegressionSuite {
     static public junit.framework.Test suite() {
         
         MultiConfigSuiteBuilder builder =
-            new MultiConfigSuiteBuilder(TestSaveRestoreSysprocSuite.class);
-        SaveRestoreTestProjectBuilder project =
-            new SaveRestoreTestProjectBuilder();  
-        VoltServerConfig config = null;
+                new MultiConfigSuiteBuilder(TestSaveRestoreSysprocSuite.class);
+            SaveRestoreTestProjectBuilder project =
+                new SaveRestoreTestProjectBuilder();  
+            VoltServerConfig config = null;
 
-        project.addAllDefaults();
-          
-        config =
-            new LocalSingleProcessServer("sysproc-threesites.jar", 3,
-                                                 BackendTarget.NATIVE_EE_JNI);
-        boolean success = config.compile(project);
-        assert(success);
-        builder.addServerConfig(config);
+            project.addAllDefaults();
+              
+            config =
+                new LocalSingleProcessServer("sysproc-threesites.jar", 4,
+                                                     BackendTarget.NATIVE_EE_JNI);
+            boolean success = config.compile(project);
+            assert(success);
+            builder.addServerConfig(config);
 
-        return builder;
+            return builder;
     }
 }
