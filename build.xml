@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <!DOCTYPE project [
-<!ENTITY common SYSTEM "build-common.xml">
+       <!ENTITY common SYSTEM "build-common.xml">
 ]>
 <project default="default" name="H-Store">
 
@@ -28,7 +28,6 @@
 <envdefault prop="build" var="VOLTBUILD" default="release" />
 
 <!-- HStoreConf Arguments -->
-
 <!-- <property name='build.common'                location='build-common.xml' /> -->
 
 <!-- <property name='build.dir'                   location='obj/${build}' /> -->
@@ -67,31 +66,29 @@
 <property name='depcache'                    value='.depcache' />
 
 <!-- Supplmental H-Store Files -->
-<property name='files.dir' location='files' />
-<property name='files.stats.dir' location='${files.dir}/stats' />
-<property name='files.workloads.dir' location='${files.dir}/workloads' />
-<property name='files.markovs.dir' location='${files.dir}/markovs' />
-<property name='files.hints.dir' location='${files.dir}/designhints' />
-<property name='files.mappings.dir' location='${files.dir}/mappings' />
+<property name='files.dir'                   location='files' />
+<property name='files.stats.dir'             location='${files.dir}/stats' />
+<property name='files.workloads.dir'         location='${files.dir}/workloads' />
+<property name='files.markovs.dir'           location='${files.dir}/markovs' />
+<property name='files.hints.dir'             location='${files.dir}/designhints' />
+<property name='files.mappings.dir'          location='${files.dir}/mappings' />
 
 <!-- ProtocolBuffer Source -->
-<property name="src.protobuf.dir" location="third_party/cpp/protobuf" />
-<property name="build.protobuf.dir" location="${build.dir}/protobuf" />
-<property name="build.protobuf.dir.protoc" location="${build.protobuf.dir}/src/protoc" />
+<property name="src.protobuf.dir"            location="third_party/cpp/protobuf" />
+<property name="build.protobuf.dir"          location="${build.dir}/protobuf" />
+<property name="build.protobuf.dir.protoc"   location="${build.protobuf.dir}/src/protoc" />
 
 <!-- TPC-E Generator -->
-
 <property name="src.tpce.dir"                location="third_party/cpp/tpceloader" />
 
-
 <!-- emma build instrumentation location -->
-<property name='build.instr.dir' location='${build.dir}/instr' />
+<property name='build.instr.dir'             location='${build.dir}/instr' />
 
 <!-- Checkstyle Initilization -->
 <taskdef resource="checkstyletask.properties" classpath="${vendor.lib.dir}/checkstyle-5.5.jar"/>
 
-<property name='jprofiler.dir' location='/home/ubuntu/jprofiler' />
-<property name='jprofiler.port' value='8849' />
+<property name='jprofiler.dir'                  location='/home/ubuntu/jprofiler' />
+<property name='jprofiler.port'                 value='8849' />
 
 <!--
 ***************************************
@@ -99,7 +96,7 @@
 **************************************
 -->
 
-<!-- Default H-Store Configuration File -->
+<!-- Default H-Store Configuration File  -->
 <condition property="conf" value="${properties.dir}/default.properties">
     <not><isset property="conf"/></not>
 </condition>
@@ -118,7 +115,7 @@
 
 <!-- Default Project -->
 <!--<condition property="project" value="tpcc">
-<not><isset property="project"/></not>
+    <not><isset property="project"/></not>
 </condition>-->
 
 <!-- Project Jar File -->
@@ -133,18 +130,18 @@
 **************************************
 -->
 
-<!-- Default heap size for Volt server (MB) -->
+<!-- Default heap size for Volt server (MB)  -->
 <condition property="volt.server.memory" value="2048">
     <not><isset property="volt.server.memory"/></not>
 </condition>
 
-<!-- Default heap size for Volt clients+loaders (MB) -->
+<!-- Default heap size for Volt clients+loaders (MB)  -->
 <condition property="volt.client.memory" value="1024">
     <not><isset property="volt.client.memory"/></not>
 </condition>
 
 <!-- Overridden in the Hudson test script. -->
-<property name='junit.haltonfailure' value='false' />
+<property name='junit.haltonfailure'    value='false' />
 <property name="j2se_api" value="http://java.sun.com/javase/6/docs/api/"/>
 
 <path id='project.classpath'>
@@ -251,12 +248,12 @@ ENVIRONMENT SETUP
 </target>
 
 <!--<target name="default_properties.check">
-<available property="default_properties.exists" file="${propeties.dir}/default.properties" />
+   <available property="default_properties.exists" file="${propeties.dir}/default.properties" />
 </target>
 
 <target name="default_properties" depends="default_properties.check" unless="default_properties.exists">
-<property name="default.properties" location="log4j.properties"/>
-<symlink link="${build.prod.dir}" resource="${log4j.properties}" failonerror="false"/>
+    <property name="default.properties" location="log4j.properties"/>
+    <symlink link="${build.prod.dir}" resource="${log4j.properties}" failonerror="false"/>
 </target>-->
 
 
@@ -510,7 +507,6 @@ JAVA COMPILATION
         <arg line='${src.frontend.dir} ${build.preprocessor.dir}' />
     </exec>-->
 
-
     <depend
         srcdir="${src.hsqldb.dir}:${src.hsqldb.test.dir}:${src.frontend.dir}:${src.benchmarks.dir}:${src.test.dir}:${vendor.src.dir}"
         destdir="${build.prod.dir}:${build.test.dir}"
@@ -641,16 +637,15 @@ JAVA COMPILATION
     <delete dir="${build.prod.dir}/META-INF/"/>
 
 <!--     <antcall target="log4j_properties" /> -->
-
 </target>
 
 <!--<target name="log4j_properties.check">
-<available property="log4j_properties.exists" file="${build.prod.dir}/log4j.properties" />
+   <available property="log4j_properties.exists" file="${build.prod.dir}/log4j.properties" />
 </target>
 
 <target name="log4j_properties" depends="log4j_properties.check" unless="log4j_properties.exists">
-<property name="log4j.properties" location="log4j.properties"/>
-<symlink link="${build.prod.dir}" resource="${log4j.properties}" failonerror="false"/>
+    <property name="log4j.properties" location="log4j.properties"/>
+    <symlink link="${build.prod.dir}" resource="${log4j.properties}" failonerror="false"/>
 </target>-->
 
 <!--
@@ -776,10 +771,10 @@ NATIVE EE STUFF
     <exec dir='.' executable='python' failonerror='true'>
         <arg line="build.py LOG_LEVEL=${site.exec_ee_log_level} ${build}" />
     </exec>
-<!-- <exec dir='.' executable='/bin/sh'>
-<arg line="-c 'rm -f ${build.dir}/nativelibs/libvoltdb.so'"/>
-</exec>
-<symlink link="${build.dir}/nativelibs/libvoltdb.so" resource="${build.dir}/nativelibs/libvoltdb-${dist.version}.so" overwrite="true" failonerror="false"/>-->
+<!--     <exec dir='.' executable='/bin/sh'>
+        <arg line="-c 'rm -f ${build.dir}/nativelibs/libvoltdb.so'"/>
+    </exec>
+   <symlink link="${build.dir}/nativelibs/libvoltdb.so" resource="${build.dir}/nativelibs/libvoltdb-${dist.version}.so" overwrite="true" failonerror="false"/>-->
 </target>
 
 <target name='execplanfrag' depends="ee"
@@ -799,9 +794,9 @@ TEST CASES
     <property name="build.dir.suffix" value="" /> <!-- Default -->
     <property name='classpath' refid='project.classpath' />
     <property name='echoserver.command' value="java
--Djava.library.path=${build.dir}${build.dir.suffix}/nativelibs -classpath
-${classpath} -server -Xmx64m -XX:+AggressiveOpts -ea
-org.voltdb.messaging.EchoServer" />
+    -Djava.library.path=${build.dir}${build.dir.suffix}/nativelibs -classpath
+    ${classpath} -server -Xmx64m -XX:+AggressiveOpts -ea
+    org.voltdb.messaging.EchoServer" />
     <exec dir='tests/scripts/' executable='python' failonerror='true'>
         <arg line="Testfastserializer.py"/>
         <arg line='"${echoserver.command}"'/>
@@ -865,10 +860,10 @@ org.voltdb.messaging.EchoServer" />
             <env key="TEST_DIR" value="${build.testobjects.dir}" />
             <env key="VOLT_REGRESSIONS" value="${regressions}" />
             <!-- Following two env vars are used by Java code
-when running ant check -Dbuild=memcheck
-The voltdbipc client is used in concert with valgrind
-for most tests (those that would normally run against
-the single process JNI backend. -->
+                 when running ant check -Dbuild=memcheck
+                 The voltdbipc client is used in concert with valgrind
+                 for most tests (those that would normally run against
+                 the single process JNI backend. -->
             <env key="BUILD" value="${build}" />
             <env key="VOLTDBIPC_PATH" value="${build.prod.dir}/voltdbipc" />
 
@@ -960,6 +955,7 @@ the single process JNI backend. -->
                 <exclude name="**/TestMaliciousClientSuite.class" />
                 <exclude name="**/TestELTSuite.class" />
                 <exclude name="**/TestFailuresSuite.class" />
+                <exclude name="**/TestSaveRestoreSysprocSuite.class" />
                 <exclude name="**/TestPrefetchableSuite.class" />
                 
                 <!-- Tests that use too much memory -->
@@ -989,7 +985,7 @@ the single process JNI backend. -->
     </junitreport>
 
     <!-- Fail the build if there were any problems.
-This runs all the tests before failing. -->
+        This runs all the tests before failing. -->
     <fail
         if="junit.failures"
         unless="emma.enabled"
@@ -1047,6 +1043,7 @@ This runs all the tests before failing. -->
                 <exclude name="**/TestMaliciousClientSuite.class" />
                 <exclude name="**/TestELTSuite.class" />
                 <exclude name="**/TestFailuresSuite.class" />
+                <exclude name="**/TestSaveRestoreSysprocSuite.class" />
                 <exclude name="**/TestPrefetchableSuite.class" />
 
                 <!-- Tests that use too much memory -->
@@ -1080,7 +1077,7 @@ This runs all the tests before failing. -->
         excludes='TESTS-TestSuites.xml'
     />
     <!-- Fail the build if there were any problems.
-This runs all the tests before failing. -->
+        This runs all the tests before failing. -->
     <fail
         if="junit.failures"
         unless="emma.enabled"
@@ -1127,6 +1124,7 @@ This runs all the tests before failing. -->
                     <exclude name="**/TestFailuresSuite.class" />
                     <exclude name="**/TestPlansGroupBySuite.class" />
                     <exclude name="**/TestRollbackSuite.class" />
+                    <exclude name="**/TestSaveRestoreSysprocSuite.class" />
                     <exclude name="**/TestPrefetchableSuite.class" />
                 </fileset>
             </tests>
@@ -1186,10 +1184,10 @@ This runs all the tests before failing. -->
 </target>
 
 <!--
-this target is intended to be called only with antcall!
-set two properties beforehand or as part of the call:
-lcov.dir is the directory in which to put the coverage report
-lcov.target is the ant target to run under coverage
+    this target is intended to be called only with antcall!
+    set two properties beforehand or as part of the call:
+    lcov.dir is the directory in which to put the coverage report
+    lcov.target is the ant target to run under coverage
 -->
 <target name='with.lcov' description="Generate C++ code coverage reports.">
   <property name="lcov.base.tracefile" value="lcov_base.info" />
@@ -1327,8 +1325,8 @@ lcov.target is the ant target to run under coverage
 </target>
 
 <!-- This target will run a junit suite. It will also run a single
-suite under valgrind with -Dbuild=memcheck. NOTE: to use valgrind,
-you must "cd obj/memcheck && make prod/voltdbipc" separately. -->
+     suite under valgrind with -Dbuild=memcheck.  NOTE: to use valgrind,
+     you must "cd obj/memcheck && make prod/voltdbipc" separately. -->
 <target name='junitclass'
     description="Run one junit suite (i.e, -Djunitclass=TestSQLFeaturesSuite)">
 
@@ -1431,11 +1429,11 @@ you must "cd obj/memcheck && make prod/voltdbipc" separately. -->
     </condition>
     <property name='classpath' refid='project.classpath' />
     <property name='simpleserver.command' value='java
--Djava.library.path=${build.dir}${build.dir.suffix}/nativelibs -classpath
-${classpath} -server -Xmx512m -XX:+AggressiveOpts -ea
-org.voltdb.sqlgenerator.SimpleServer hosts=${hosts}
-sitesperhost=${sitesperhost} replicas=${replicas}
-${debug_output}' />
+    -Djava.library.path=${build.dir}${build.dir.suffix}/nativelibs -classpath
+    ${classpath} -server -Xmx512m -XX:+AggressiveOpts -ea
+    org.voltdb.sqlgenerator.SimpleServer hosts=${hosts}
+    sitesperhost=${sitesperhost} replicas=${replicas}
+    ${debug_output}' />
     <copy todir="${build.test.dir}/org/voltdb/sqlgenerator">
       <fileset dir="${test.example.dir}">
         <include name="**/*.sql"/>
@@ -1493,7 +1491,7 @@ PROTOCOL BUFFERS
     <sequential>
         <mkdir dir="@{destdir}" />
         <apply executable="${build.protobuf.dir.protoc}" dest="@{destdir}" resolveexecutable="true" failonerror="true" verbose="true">
-<!-- <apply executable="echo" dest="@{destdir}" resolveexecutable="true" failonerror="true" verbose="true"> -->
+<!--         <apply executable="echo" dest="@{destdir}" resolveexecutable="true" failonerror="true" verbose="true"> -->
             <arg value="--java_out=@{destdir}" />
             <arg value="--proto_path=@{srcdir}" />
             <files/>
@@ -1503,10 +1501,10 @@ PROTOCOL BUFFERS
         <!-- Delete any generated .java for .proto files which no longer exist. -->
         <!-- Does not work with the generated .java from Google's protocol buffers library... -->
         <!--<delete verbose="true"><fileset dir="@{destdir}">
-<not><present present="both" targetdir="@{srcdir}">
-<mapper type="glob" from="*.java" to="*.proto" />
-</present></not>
-</fileset></delete>-->
+            <not><present present="both" targetdir="@{srcdir}">
+                <mapper type="glob" from="*.java" to="*.proto" />
+            </present></not>
+        </fileset></delete>-->
     </sequential>
 </macrodef>
 
@@ -1518,11 +1516,11 @@ PROTOCOL BUFFERS
                                 depends="protoc.check, getcpus"
                                 unless="protoc.built">
     <mkdir dir="${build.protobuf.dir}" />
-    <exec executable="${src.protobuf.dir}/configure" dir="${build.protobuf.dir}" failonerror="true" resolveexecutable="true">
+    <exec executable="${src.protobuf.dir}/configure" dir="${build.protobuf.dir}" failonerror="true"  resolveexecutable="true">
         <arg value="--disable-shared" />
     </exec>
     <exec executable="make" dir="${build.protobuf.dir}" failonerror="true">
-<!-- <arg value="protoc" /> -->
+<!--         <arg value="protoc" /> -->
         <arg value="-j${numcpus}" />
     </exec>
 </target>
@@ -1665,7 +1663,7 @@ BENCHMARKS
         <arg value="KILLONZERO=${killonzero}" />
 
         <!-- Actual number of connections opened to cluster will be:
-NUMCONNECTIONS * CLIENTCOUNT * PROCESSESPERCLIENT * HOSTCOUNT -->
+            NUMCONNECTIONS * CLIENTCOUNT * PROCESSESPERCLIENT * HOSTCOUNT -->
         <arg value="NUMCONNECTIONS=${numconnections}" />
         <arg value="STATSDATABASETAG=${statsDatabaseTag}" />
         <arg value="STATSDATABASEURL=${statsDatabaseURL}" />
@@ -1838,15 +1836,15 @@ DESIGNER
 -->
 
 <!--<target name='makecatalog' description="Construct the project jar for a benchmark">
-<java fork="yes" failonerror="true" classname="edu.brown.workload.FixWorkload">
-<arg value="catalog.jar=${jar}" />
-<arg value="workload=${workload}" />
-<arg value="workload.xactlimit=${limit}" />
-<arg value="workload.output=${output}" />
-<arg value="${sigma}" />
-<classpath refid='project.classpath' />
-<assertions><enable /></assertions>
-</java>
+   <java fork="yes" failonerror="true" classname="edu.brown.workload.FixWorkload">
+      <arg value="catalog.jar=${jar}" />
+      <arg value="workload=${workload}" />
+      <arg value="workload.xactlimit=${limit}" />
+      <arg value="workload.output=${output}" />
+      <arg value="${sigma}" />
+      <classpath refid='project.classpath' />
+      <assertions><enable /></assertions>
+   </java>
 </target>-->
 
 <target name='catalog-fix'
@@ -2005,14 +2003,13 @@ DESIGNER
 <!--    <exec dir="${basedir}" executable="dot">
         <arg line="-Tpng ${project}.dot > ${project}.png"/>
     </exec>-->
-
 </target>
 
 <target name='weka' description="Launch Weka GUI">
     <java fork="yes" classname="weka.gui.GUIChooser">
         <jvmarg value="-Xmx${volt.client.memory}m" />
         <classpath refid='project.classpath' />
-<!-- <assertions><enable /></assertions> -->
+<!--         <assertions><enable /></assertions> -->
     </java>
 </target>
 
@@ -2087,12 +2084,12 @@ DESIGNER
     <java fork="yes" classname="edu.brown.markov.FeatureClusterer" failonerror='true'>
         <jvmarg value="-Xmx${volt.client.memory}m" />
         <jvmarg value="-server" />
-<!-- <jvmarg value="-verbose:gc" /> -->
+<!--         <jvmarg value="-verbose:gc" /> -->
         <jvmarg value="-XX:+UseParNewGC" />
         <jvmarg value="-XX:+UseConcMarkSweepGC" />
-<!-- <jvmarg value="-XX:+PrintGCDetails" /> -->
-<!-- <jvmarg value="-XX:+PrintGCTimeStamps" /> -->
-<!-- <jvmarg value="-Xloggc:gc.log" /> -->
+<!--         <jvmarg value="-XX:+PrintGCDetails" /> -->
+<!--         <jvmarg value="-XX:+PrintGCTimeStamps" /> -->
+<!--         <jvmarg value="-Xloggc:gc.log" /> -->
         <arg value="catalog.jar=${jar}" />
         <arg value="workload=${workload}" />
         <arg value="workload.randompartitions=${randompartitions}" />
@@ -2345,9 +2342,9 @@ H-STORE REMIX
 <target name="hstore-prepare" description="Prepares a benchmark catalog">
     <!-- Compile + create benchmark project jar -->
     <antcall target="benchmark">
-        <param name="compileonly" value="true" />
-        <param name="compile" value="true" />
-        <param name="host1" value="${global.defaulthost}" />
+        <param name="compileonly"   value="true" />
+        <param name="compile"       value="true" />
+        <param name="host1"         value="${global.defaulthost}" />
     </antcall>
 
     <!-- Sets up host/site/partition information in system catalogs -->
@@ -2389,7 +2386,7 @@ H-STORE REMIX
         <jvmarg value="-server" />
         <!-- <jvmarg value="-Djava.library.path=${build.dir}/nativelibs:${jprofiler.dir}/bin/linux-x64:/usr/lib" /> -->
         <jvmarg value="-Djava.library.path=${build.dir}/nativelibs" />
-<!-- <jvmarg value="-Xcheck:jni" /> -->
+<!--         <jvmarg value="-Xcheck:jni" /> -->
 
         <arg value="catalog.jar=${jar}" />
         <arg value="conf=${conf}" />
@@ -2465,12 +2462,11 @@ H-STORE REMIX
         <param name="mappings" value="${files.mappings.dir}/${project}.mappings" />
 
         <!-- FORMAT: <hostname>:<site#>:<partition#> -->
-<!-- <param name="hosts" value="${global.defaulthost}:0:0,${global.defaulthost}:1:1" /> -->
-<!-- <param name="hosts" value="${global.defaulthost}:0:0,${global.defaulthost}:0:1,${global.defaulthost}:0:2,${global.defaulthost}:0:3,${global.defaulthost}:0:4" /> -->
-<!-- <param name="hosts" value="${global.defaulthost}:0:0,${global.defaulthost}:0:1" /> -->
+<!--         <param name="hosts" value="${global.defaulthost}:0:0,${global.defaulthost}:1:1" /> -->
+<!--         <param name="hosts" value="${global.defaulthost}:0:0,${global.defaulthost}:0:1,${global.defaulthost}:0:2,${global.defaulthost}:0:3,${global.defaulthost}:0:4" /> -->
+<!--         <param name="hosts" value="${global.defaulthost}:0:0,${global.defaulthost}:0:1" /> -->
         <param name="hosts" value="${global.defaulthost}:0:0;${global.defaulthost}:0:1;${global.defaulthost}:1:2;${global.defaulthost}:1:3" />
     </antcall>
-
 </target>
 
 <target name='hstore-dist' description="Prepare Repository for New Release">

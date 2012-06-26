@@ -130,6 +130,8 @@ public class SnapshotScan extends VoltSystemProcedure {
                                    errorString);
                 } else {
                     for (final File f : relevantFiles) {
+                        if (f.length() == 0)
+                            continue;
                         if (f.getName().endsWith(".digest")) {
                             continue;
                         }
