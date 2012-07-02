@@ -137,6 +137,13 @@ ByteBuffer as it will be passed directly to the C++ code. */
                 deserializer.buffer(), deserializer.buffer().capacity(),
                 exceptionBuffer, exceptionBuffer.capacity());
         checkErrorCode(errorCode);
+        
+        if (m_anticache) {
+            LOG.info("Enabling anti-cache feature in EE");
+            errorCode = nativeEnableAntiCache(pointer);
+            checkErrorCode(errorCode);
+        }
+        
         //LOG.info("Initialized Execution Engine");
     }
 
