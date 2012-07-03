@@ -91,12 +91,12 @@ public class SnapshotRestore extends VoltSystemProcedure
             String fileNonce,
             String tableName,
             int originalHostIds[],
-            int relevantPartitionIds[]) throws IOException {
+            int relevantPartitionIds[], PartitionExecutor e) throws IOException {
         if (!m_initializedTableSaveFiles.add(tableName)) {
             return;
         }
         for (int originalHostId : originalHostIds) {
-            final File f = getSaveFileForPartitionedTable( filePath, fileNonce, tableName, originalHostId);
+            final File f = getSaveFileForPartitionedTable( filePath, fileNonce, tableName, originalHostId, e);
             m_saveFiles.offer(
                     getTableSaveFile(
                             f,
@@ -297,7 +297,7 @@ public class SnapshotRestore extends VoltSystemProcedure
             try
             {
                 savefile =
-                    getTableSaveFile(getSaveFileForReplicatedTable(table_name), 3, null);
+                    getTableSaveFile(getSaveFileForReplicatedTable(table_name, context.getExecutionSite()), 3, null);
                 assert(savefile.getCompleted());
             }
             catch (IOException e)
@@ -673,10 +673,11 @@ public class SnapshotRestore extends VoltSystemProcedure
         return new VoltTable(result_columns);
     }
 
-    private File getSaveFileForReplicatedTable(String tableName)
+    private File getSaveFileForReplicatedTable(String tableName, PartitionExecutor e)
     {
         StringBuilder filename_builder = new StringBuilder(m_fileNonce);
         filename_builder.append("-");
+        filename_builder.append("partition_" + e.getPartitionId() + "-");
         filename_builder.append(tableName);
         filename_builder.append(".vpt");
         return new File(m_filePath, new String(filename_builder));
@@ -686,10 +687,12 @@ public class SnapshotRestore extends VoltSystemProcedure
                                                 String filePath,
                                                 String fileNonce,
                                                 String tableName,
-                                                int originalHostId)
+                                                int originalHostId,
+                                                PartitionExecutor e)
     {
         StringBuilder filename_builder = new StringBuilder(fileNonce);
         filename_builder.append("-");
+        filename_builder.append("partition_" + e.getPartitionId() + "-");
         filename_builder.append(tableName);
         filename_builder.append("-host_");
         filename_builder.append(originalHostId);
@@ -835,7 +838,7 @@ public class SnapshotRestore extends VoltSystemProcedure
         try
         {
             savefile =
-                getTableSaveFile(getSaveFileForReplicatedTable(tableName), 3, null);
+                getTableSaveFile(getSaveFileForReplicatedTable(tableName, this.executor), 3, null);
             assert(savefile.getCompleted());
         }
         catch (IOException e)
@@ -953,7 +956,8 @@ public class SnapshotRestore extends VoltSystemProcedure
                     m_fileNonce,
                     tableName,
                     originalHostIds,
-                    relevantPartitionIds);
+                    relevantPartitionIds, 
+                    this.executor);
         }
         catch (IOException e)
         {
