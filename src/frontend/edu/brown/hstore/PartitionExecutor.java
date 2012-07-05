@@ -1312,7 +1312,7 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                               param_index, allParams.length, ts); 
             fragmentParams[i].setParameters(allParams[param_index]);
         } // FOR
-        return (fragmentParams);
+        return fragmentParams;
     }
     
     private Map<Integer, List<VoltTable>> getFragmentInputs(AbstractTransaction ts, WorkFragment fragment, Map<Integer, List<VoltTable>> inputs) {
@@ -1330,20 +1330,23 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                 // If the Transaction is on the same HStoreSite, then all the 
                 // input dependencies will be internal and can be retrieved locally
                 if (is_local) {
-                    List<VoltTable> deps = ((LocalTransaction)ts).getInternalDependency(input_dep_id);
-                    assert(deps != null);
-                    assert(inputs.containsKey(input_dep_id) == false);
+                    List<VoltTable> deps = ((LocalTransaction) ts).getInternalDependency(input_dep_id);
+                    assert (deps != null);
+                    assert (inputs.containsKey(input_dep_id) == false);
                     inputs.put(input_dep_id, deps);
-                    if (d) LOG.debug(String.format("%s - Retrieved %d INTERNAL VoltTables for DependencyId #%d\n" + deps,
-                                                   ts, deps.size(), input_dep_id));
+                    if (d)
+                        LOG.debug(String.format("%s - Retrieved %d INTERNAL VoltTables for DependencyId #%d\n" + deps, ts, deps.size(), input_dep_id));
                 }
-                // Otherwise they will be "attached" inputs to the RemoteTransaction handle
-                // We should really try to merge these two concepts into a single function call
+                // Otherwise they will be "attached" inputs to the
+                // RemoteTransaction handle
+                // We should really try to merge these two concepts into a
+                // single function call
                 else if (attachedInputs.containsKey(input_dep_id)) {
                     List<VoltTable> deps = attachedInputs.get(input_dep_id);
                     List<VoltTable> pDeps = null;
                     // XXX: Do we actually need to copy these???
-                    // XXX: I think we only need to copy if we're debugging the tables!
+                    // XXX: I think we only need to copy if we're debugging the
+                    // tables!
                     if (d) { // this.firstPartition == false) {
                         pDeps = new ArrayList<VoltTable>();
                         for (VoltTable vt : deps) {
@@ -1356,9 +1359,9 @@ public class PartitionExecutor implements Runnable, Shutdownable, Loggable {
                     } else {
                         pDeps = deps;
                     }
-                    inputs.put(input_dep_id, pDeps); 
-                    if (d) LOG.debug(String.format("%s - Retrieved %d ATTACHED VoltTables for DependencyId #%d in %s",
-                                                   ts, deps.size(), input_dep_id));
+                    inputs.put(input_dep_id, pDeps);
+                    if (d)
+                        LOG.debug(String.format("%s - Retrieved %d ATTACHED VoltTables for DependencyId #%d in %s", ts, deps.size(), input_dep_id));
                 }
 
             } // FOR (inputs)
