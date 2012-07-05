@@ -905,7 +905,7 @@ public class SnapshotRestore extends VoltSystemProcedure
             int result_dependency_id = TableSaveFileState.getNextDependencyId();
             pfs[0] = new SynthesizedPlanFragment();
             pfs[0].fragmentId = SysProcFragmentId.PF_restoreSendReplicatedTable;
-            // XXX pfs[0].siteId = siteId;
+            pfs[0].destPartitionId = siteId;
             pfs[0].outputDependencyIds = new int[]{ result_dependency_id };
             pfs[0].inputDependencyIds = new int[] {};
             pfs[0].multipartition = false;
@@ -941,11 +941,13 @@ public class SnapshotRestore extends VoltSystemProcedure
         // LoadMultipartitionTable.  Consider ways to consolidate later
         Map<Integer, Integer> sites_to_partitions =
             new HashMap<Integer, Integer>();
-        for (Site site : CatalogUtil.getCluster(HStore.instance().getCatalog()).getSites())
+        for (Site site : CatalogUtil.getAllSites(HStore.instance().getCatalog()))
         {
-            for (Partition partition : site.getPartitions()) {
-                sites_to_partitions.put(site.getId(),
-                                        partition.getId());
+            if (site.getIsup()) {
+                for (Partition partition : site.getPartitions()) {
+                    sites_to_partitions.put(site.getId(),
+                                            partition.getId());
+                }
             }
         }
 
@@ -1035,7 +1037,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                 pfs[pfs_index] = new SynthesizedPlanFragment();
                 pfs[pfs_index].fragmentId =
                     SysProcFragmentId.PF_restoreSendPartitionedTable;
-                // XXX pfs[pfs_index].siteId = site_id;
+                pfs[pfs_index].destPartitionId = site_id;
                 pfs[pfs_index].multipartition = false;
                 pfs[pfs_index].outputDependencyIds = new int[]{ dependencyIds[pfs_index] };
                 pfs[pfs_index].inputDependencyIds = new int [] {};

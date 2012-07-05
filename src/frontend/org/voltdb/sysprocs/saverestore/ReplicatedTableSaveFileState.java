@@ -114,15 +114,15 @@ public class ReplicatedTableSaveFileState extends TableSaveFileState
     generateReplicatedToReplicatedPlan()
     {
         SynthesizedPlanFragment[] restore_plan = null;
-        Cluster catalog_clus = CatalogUtil.getCluster(HStore.instance().getCatalog());
-        Host[] hosts_value = catalog_clus.getHosts().values();
-        Set<Integer> execution_site_ids = new HashSet<Integer>();
-        for (int i =0; i < hosts_value.length; i++) {
-            Collection<Partition> siteList = CatalogUtil.getPartitionsForHost(hosts_value[i]);         
-            for (Partition site: siteList) {
-                execution_site_ids.add(site.getId());
-            }
-        }
+//        Cluster catalog_clus = CatalogUtil.getCluster(HStore.instance().getCatalog());
+//        Host[] hosts_value = catalog_clus.getHosts().values();        
+//        for (int i =0; i < hosts_value.length; i++) {
+//            Collection<Partition> siteList = CatalogUtil.getPartitionsForHost(hosts_value[i]);         
+//            for (Partition site: siteList) {
+//                execution_site_ids.add(site.getId());
+//            }
+//        }
+        Collection<Integer> execution_site_ids = CatalogUtil.getAllPartitionIds(HStore.instance().getCatalog());
 //        Set<Integer> execution_site_ids = 
 //            VoltDB.instance().getCatalogContext().siteTracker.getExecutionSiteIds();
         Set<Integer> sites_missing_table =
@@ -155,7 +155,7 @@ public class ReplicatedTableSaveFileState extends TableSaveFileState
         return restore_plan;
     }
 
-    private Set<Integer> getSitesMissingTable(Set<Integer> clusterSiteIds)
+    private Set<Integer> getSitesMissingTable(Collection<Integer> clusterSiteIds)
     {
         Set<Integer> sites_missing_table = new HashSet<Integer>();
         for (int site_id : clusterSiteIds)

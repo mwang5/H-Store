@@ -30,6 +30,7 @@ import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 import org.voltdb.ParameterSet;
+import org.voltdb.VoltDB;
 import org.voltdb.VoltSystemProcedure.SynthesizedPlanFragment;
 import org.voltdb.VoltTableRow;
 import org.voltdb.catalog.Cluster;
@@ -170,6 +171,7 @@ public class PartitionedTableSaveFileState extends TableSaveFileState
             Host[] hosts_value = catalog_clus.getHosts().values();
             Collection<Integer> sitesAtHost = new ArrayList<Integer>();
             for(int j=0; j<hosts_value.length; j++){
+                //LOG.info("----" + hosts_value[j].getId());
                 if (hosts_value[j].getId() == nextHost) {
                     Collection<Partition> siteList = CatalogUtil.getPartitionsForHost(hosts_value[j]);
                     for (Partition site: siteList) {
@@ -177,7 +179,6 @@ public class PartitionedTableSaveFileState extends TableSaveFileState
                     }   
                 }
             }
-
 //            List<Integer> sitesAtHost =
 //                    VoltDB.instance().getCatalogContext().siteTracker.
 //                    getLiveExecutionSitesForHost(nextHost);
