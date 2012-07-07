@@ -30,6 +30,7 @@ import org.voltdb.VoltSystemProcedure.SynthesizedPlanFragment;
 import org.voltdb.catalog.Cluster;
 import org.voltdb.catalog.Host;
 import org.voltdb.catalog.Partition;
+import org.voltdb.catalog.Site;
 import org.voltdb.catalog.Table;
 import org.voltdb.sysprocs.SysProcFragmentId;
 
@@ -75,6 +76,7 @@ public class ReplicatedTableSaveFileState extends TableSaveFileState
         LOG.info("Total partitions for Replicated Table: " + getTableName());
         Cluster catalog_clus = CatalogUtil.getCluster(HStore.instance().getCatalog());
         Host[] hosts_value = catalog_clus.getHosts().values();
+        
         for (int hostId = 0; hostId < m_hostsWithThisTable.size(); hostId++) {  
             for (int i = 0; i < hosts_value.length; i++)
                 if (hosts_value[i].getId() == hostId) {

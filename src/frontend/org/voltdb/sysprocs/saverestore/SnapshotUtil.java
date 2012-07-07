@@ -47,7 +47,6 @@ import org.voltdb.utils.Pair;
 import org.voltdb.utils.DBBPool.BBContainer;
 
 import edu.brown.catalog.CatalogUtil;
-import edu.brown.hstore.HStore;
 import edu.brown.hstore.PartitionExecutor;
 import edu.brown.hstore.PartitionExecutor.SystemProcedureExecutionContext;
 
@@ -231,7 +230,6 @@ public class SnapshotUtil {
                     return true;
                 }
             }
-
             return false;
         }
     }
@@ -602,10 +600,8 @@ public class SnapshotUtil {
                                                          String hostId,
                                                          PartitionExecutor ee)
     {
-
-        
         StringBuilder filename_builder = new StringBuilder(fileNonce);
-        filename_builder.append("-partition_" + ee.getPartitionId() + "-");
+        filename_builder.append("-partition_"); //+ ee.getPartitionId() + "-");
         filename_builder.append(table.getTypeName());
         if (!table.getIsreplicated())
         {
@@ -641,7 +637,7 @@ public class SnapshotUtil {
         for (Table table : all_tables)
         {
             // Make a list of all non-materialized, non-export onley tables
-            if ((table.getMaterializer() != null))
+            if (table.getMaterializer() != null)
             {
                 continue;
             }

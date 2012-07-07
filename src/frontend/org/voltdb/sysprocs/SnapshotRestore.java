@@ -44,6 +44,7 @@ import org.voltdb.ProcInfo;
 import org.voltdb.TheHashinator;
 import org.voltdb.VoltSystemProcedure;
 import org.voltdb.VoltTable;
+import org.voltdb.VoltSystemProcedure.SynthesizedPlanFragment;
 import org.voltdb.VoltTable.ColumnInfo;
 import org.voltdb.VoltType;
 import org.voltdb.VoltTypeException;
@@ -91,7 +92,8 @@ public class SnapshotRestore extends VoltSystemProcedure
             String fileNonce,
             String tableName,
             int originalHostIds[],
-            int relevantPartitionIds[], PartitionExecutor e) throws IOException {
+            int relevantPartitionIds[], 
+            PartitionExecutor e) throws IOException {
         if (!m_initializedTableSaveFiles.add(tableName)) {
             return;
         }
@@ -172,7 +174,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                                   PF_restoreSendPartitionedTableResults,
                                   this);
         m_siteId = site.getSiteId();
-        m_hostId = site.getHostId();
+        m_hostId = site.getHost().getId();
     }
 
     @Override
@@ -204,8 +206,6 @@ public class SnapshotRestore extends VoltSystemProcedure
                 File[] savefiles = retrieveRelevantFiles(m_filePath, m_fileNonce);
                 for (File file : savefiles)
                 {
-                    if (file.length() == 0)
-                        continue;
                     TableSaveFile savefile = null;
                     try
                     {
@@ -233,7 +233,6 @@ public class SnapshotRestore extends VoltSystemProcedure
                                               is_replicated,
                                               pid,
                                               savefile.getTotalPartitions());
-                                //LOG.info(result);
                             }
                         } finally {
                             savefile.close();
@@ -303,7 +302,7 @@ public class SnapshotRestore extends VoltSystemProcedure
             catch (IOException e)
             {
                 VoltTable result = constructResultsTable();
-                result.addRow(m_hostId, hostname, m_siteId, table_name, -1, "FAILURE",
+                result.addRow(m_hostId, hostname, m_siteId, table_name, -1, "0FAILURE",
                               "Unable to load table: " + table_name +
                               " error: " + e.getMessage());
                 return new DependencySet(dependency_id, result);
@@ -327,7 +326,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                 catch (IOException e)
                 {
                     VoltTable result = constructResultsTable();
-                    result.addRow(m_hostId, hostname, m_siteId, table_name, -1, "FAILURE",
+                    result.addRow(m_hostId, hostname, m_siteId, table_name, -1, "1FAILURE",
                                   "Unable to load table: " + table_name +
                                   " error: " + e.getMessage());
                     return new DependencySet(dependency_id, result);
@@ -335,7 +334,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                 catch (VoltTypeException e)
                 {
                     VoltTable result = constructResultsTable();
-                    result.addRow(m_hostId, hostname, m_siteId, table_name, -1, "FAILURE",
+                    result.addRow(m_hostId, hostname, m_siteId, table_name, -1, "2FAILURE",
                                   "Unable to load table: " + table_name +
                                   " error: " + e.getMessage());
                     return new DependencySet(dependency_id, result);
@@ -348,7 +347,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                 }
                 catch (VoltAbortException e)
                 {
-                    result_str = "FAILURE";
+                    result_str = "3FAILURE";
                     error_msg = e.getMessage();
                     break;
                 }
@@ -405,7 +404,7 @@ public class SnapshotRestore extends VoltSystemProcedure
             }
             catch (VoltAbortException e)
             {
-                result_str = "FAILURE";
+                result_str = "4FAILURE";
                 error_msg = e.getMessage();
             }
             VoltTable result = constructResultsTable();
@@ -444,13 +443,16 @@ public class SnapshotRestore extends VoltSystemProcedure
             for (int dep_id : dependencies.keySet())
             {
                 List<VoltTable> table_list = dependencies.get(dep_id);
-                LOG.info("table size is:" + table_list.size());
-                assert(table_list.size() == 1);
-                VoltTable t = table_list.get(0);
-                while (t.advanceRow())
-                {
-                    // this will actually add the active row of t
-                    result.add(t);
+                //assert(table_list.size() == 1);
+                for (int i = 0; i < table_list.size(); i++) {
+                    if (table_list.get(i) != null) {
+                        VoltTable t = table_list.get(i);              
+                        while (t.advanceRow())
+                        {
+                            // this will actually add the active row of t
+                            result.add(t);
+                        }
+                    }
                 }
             }
             return new DependencySet(dependency_id, result);
@@ -490,12 +492,16 @@ public class SnapshotRestore extends VoltSystemProcedure
             for (int dep_id : dependencies.keySet())
             {
                 List<VoltTable> table_list = dependencies.get(dep_id);
-                assert(table_list.size() == 1);
-                VoltTable t = table_list.get(0);
-                while (t.advanceRow())
-                {
-                    // this will actually add the active row of t
-                    result.add(t);
+                //assert(table_list.size() == 1);
+                for (int i = 0; i < table_list.size(); i++) {
+                    if (table_list.get(i) != null) {
+                        VoltTable t = table_list.get(i);              
+                        while (t.advanceRow())
+                        {
+                            // this will actually add the active row of t
+                            result.add(t);
+                        }
+                    }
                 }
             }
             return new DependencySet(dependency_id, result);
@@ -524,7 +530,7 @@ public class SnapshotRestore extends VoltSystemProcedure
             }
             catch (VoltAbortException e)
             {
-                result_str = "FAILURE";
+                result_str = "5FAILURE";
                 error_msg = e.getMessage();
             }
             VoltTable result = constructResultsTable();
@@ -542,12 +548,16 @@ public class SnapshotRestore extends VoltSystemProcedure
             for (int dep_id : dependencies.keySet())
             {
                 List<VoltTable> table_list = dependencies.get(dep_id);
-                assert(table_list.size() == 1);
-                VoltTable t = table_list.get(0);
-                while (t.advanceRow())
-                {
-                    // this will actually add the active row of t
-                    result.add(t);
+                //assert(table_list.size() == 1);
+                for (int i = 0; i < table_list.size(); i++) {
+                    if (table_list.get(i) != null) {
+                        VoltTable t = table_list.get(i);              
+                        while (t.advanceRow())
+                        {
+                            // this will actually add the active row of t
+                            result.add(t);
+                        }
+                    }
                 }
             }
             return new DependencySet(dependency_id, result);
@@ -586,7 +596,7 @@ public class SnapshotRestore extends VoltSystemProcedure
             result_columns[ii++] = new ColumnInfo("RESULT", VoltType.STRING);
             result_columns[ii++] = new ColumnInfo("ERR_MSG", VoltType.STRING);
             VoltTable results[] = new VoltTable[] { new VoltTable(result_columns) };
-            results[0].addRow("FAILURE", e.toString());
+            results[0].addRow("6FAILURE", e.toString());
             return results;
         }
         assert(relevantTableNames != null);
@@ -602,7 +612,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                     result_columns[ii++] = new ColumnInfo("ERR_MSG", VoltType.STRING);
                     results = new VoltTable[] { new VoltTable(result_columns) };
                 }
-                results[0].addRow("FAILURE", "Save data contains no information for table " + tableName);
+                results[0].addRow("7FAILURE", "Save data contains no information for table " + tableName);
             }
 
             final TableSaveFileState saveFileState = savefile_state.getTableState(tableName);
@@ -614,7 +624,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                     result_columns[ii++] = new ColumnInfo("ERR_MSG", VoltType.STRING);
                     results = new VoltTable[] { new VoltTable(result_columns) };
                 }
-                results[0].addRow( "FAILURE",
+                results[0].addRow( "8FAILURE",
                         "Save data for " + tableName + " is inconsistent " +
                         "(potentially missing partitions) or corrupted");
             }
@@ -677,7 +687,7 @@ public class SnapshotRestore extends VoltSystemProcedure
     {
         StringBuilder filename_builder = new StringBuilder(m_fileNonce);
         filename_builder.append("-");
-        filename_builder.append("partition_" + e.getPartitionId() + "-");
+        filename_builder.append("partition_"); //+ e.getPartitionId() + "-");
         filename_builder.append(tableName);
         filename_builder.append(".vpt");
         return new File(m_filePath, new String(filename_builder));
@@ -692,9 +702,9 @@ public class SnapshotRestore extends VoltSystemProcedure
     {
         StringBuilder filename_builder = new StringBuilder(fileNonce);
         filename_builder.append("-");
-        filename_builder.append("partition_" + e.getPartitionId() + "-");
+        filename_builder.append("partition_"); //+ e.getPartitionId() + "-");
         filename_builder.append(tableName);
-        filename_builder.append("-host_");
+        filename_builder.append("-host_host0");
         filename_builder.append(originalHostId);
         filename_builder.append(".vpt");
         return new File(filePath, new String(filename_builder));
@@ -713,7 +723,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                     relevantPartitionIds);
         return savefile;
     }
-
+    
     private final VoltTable[] performRestoreScanWork(String filePath,
                                                      String fileNonce)
     {
@@ -844,7 +854,7 @@ public class SnapshotRestore extends VoltSystemProcedure
         catch (IOException e)
         {
             VoltTable result = constructResultsTable();
-            result.addRow(m_hostId, hostname, m_siteId, tableName, -1, "FAILURE",
+            result.addRow(m_hostId, hostname, m_siteId, tableName, -1, "9FAILURE",
                           "Unable to load table: " + tableName +
                           " error: " + e.getMessage());
             return result;
@@ -885,7 +895,7 @@ public class SnapshotRestore extends VoltSystemProcedure
             {
                 VoltTable result = PrivateVoltTableFactory.createUninitializedVoltTable();
                 result = constructResultsTable();
-                result.addRow(m_hostId, hostname, m_siteId, tableName, -1, "FAILURE",
+                result.addRow(m_hostId, hostname, m_siteId, tableName, -1, "10FAILURE",
                               "Unable to load table: " + tableName +
                               " error: " + e.getMessage());
                 return result;
@@ -894,7 +904,7 @@ public class SnapshotRestore extends VoltSystemProcedure
             {
                 VoltTable result = PrivateVoltTableFactory.createUninitializedVoltTable();
                 result = constructResultsTable();
-                result.addRow(m_hostId, hostname, m_siteId, tableName, -1, "FAILURE",
+                result.addRow(m_hostId, hostname, m_siteId, tableName, -1, "11FAILURE",
                               "Unable to load table: " + tableName +
                               " error: " + e.getMessage());
                 return result;
@@ -905,7 +915,7 @@ public class SnapshotRestore extends VoltSystemProcedure
             int result_dependency_id = TableSaveFileState.getNextDependencyId();
             pfs[0] = new SynthesizedPlanFragment();
             pfs[0].fragmentId = SysProcFragmentId.PF_restoreSendReplicatedTable;
-            pfs[0].destPartitionId = siteId;
+            //pfs[0].destPartitionId = siteId;
             pfs[0].outputDependencyIds = new int[]{ result_dependency_id };
             pfs[0].inputDependencyIds = new int[] {};
             pfs[0].multipartition = false;
@@ -943,11 +953,9 @@ public class SnapshotRestore extends VoltSystemProcedure
             new HashMap<Integer, Integer>();
         for (Site site : CatalogUtil.getAllSites(HStore.instance().getCatalog()))
         {
-            if (site.getIsup()) {
-                for (Partition partition : site.getPartitions()) {
-                    sites_to_partitions.put(site.getId(),
-                                            partition.getId());
-                }
+            for (Partition partition : site.getPartitions()) {
+                sites_to_partitions.put(site.getId(),
+                                        partition.getId());
             }
         }
 
@@ -964,7 +972,7 @@ public class SnapshotRestore extends VoltSystemProcedure
         catch (IOException e)
         {
             VoltTable result = constructResultsTable();
-            result.addRow(m_hostId, hostname, m_siteId, tableName, relevantPartitionIds[0], "FAILURE",
+            result.addRow(m_hostId, hostname, m_siteId, tableName, relevantPartitionIds[0], "12FAILURE",
                           "Unable to load table: " + tableName +
                           " error: " + e.getMessage());
             return result;
@@ -1005,7 +1013,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                 VoltTable result = PrivateVoltTableFactory.createUninitializedVoltTable();
                 result = constructResultsTable();
                 result.addRow(m_hostId, hostname, m_siteId, tableName, relevantPartitionIds[0],
-                              "FAILURE", "Unable to load table: " + tableName +
+                              "13FAILURE", "Unable to load table: " + tableName +
                               " error: " + e.getMessage());
                 return result;
             }
@@ -1014,7 +1022,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                 VoltTable result = PrivateVoltTableFactory.createUninitializedVoltTable();
                 result = constructResultsTable();
                 result.addRow(m_hostId, hostname, m_siteId, tableName, relevantPartitionIds[0],
-                              "FAILURE", "Unable to load table: " + tableName +
+                              "14FAILURE", "Unable to load table: " + tableName +
                               " error: " + e.getMessage());
                 return result;
             }
@@ -1037,7 +1045,7 @@ public class SnapshotRestore extends VoltSystemProcedure
                 pfs[pfs_index] = new SynthesizedPlanFragment();
                 pfs[pfs_index].fragmentId =
                     SysProcFragmentId.PF_restoreSendPartitionedTable;
-                pfs[pfs_index].destPartitionId = site_id;
+                //pfs[pfs_index].destPartitionId = site_id;
                 pfs[pfs_index].multipartition = false;
                 pfs[pfs_index].outputDependencyIds = new int[]{ dependencyIds[pfs_index] };
                 pfs[pfs_index].inputDependencyIds = new int [] {};

@@ -78,7 +78,6 @@ public class SnapshotSave extends VoltSystemProcedure
         return new VoltTable(partitionResultsColumns);
     }
 
-
     @Override
     public void globalInit(PartitionExecutor site, Procedure catalog_proc,
             BackendTarget eeType, HsqlBackend hsql, PartitionEstimator p_estimator) {
@@ -286,7 +285,9 @@ public class SnapshotSave extends VoltSystemProcedure
 
         // See if we think the save will succeed
         VoltTable[] results;
-        results = performSaveFeasibilityWork(path, nonce);
+        results = performSaveFeasibilityWork( DEP_saveTest, 
+                                                                     DEP_saveTestResults, 
+                                                                     path, nonce);
         LOG.info("performSaveFeasibilityWork Results:\n" + results[0]);
 
         // Test feasibility results for fail
@@ -301,39 +302,61 @@ public class SnapshotSave extends VoltSystemProcedure
         }
 
         results = performSnapshotCreationWork( path, nonce, startTime, (byte)block);
-
+        
         final long finishTime = System.currentTimeMillis();
         final long duration = finishTime - startTime;
         LOG.info("Snapshot initiation took " + duration + " milliseconds");
         return results;
     }
 
-    private final VoltTable[] performSaveFeasibilityWork(String filePath,
-                                                         String fileNonce)
+    protected final VoltTable[] autoDistribute(int distributeId, 
+                                                                        int aggregateId, 
+                                                                        String filePath, 
+                                                                        String fileNonce) {
+        
+        final int num_sites = CatalogUtil.getNumberOfSites(this.database);
+        final SynthesizedPlanFragment pfs[] = new SynthesizedPlanFragment[num_sites + 1];
+        final ParameterSet params = new ParameterSet();
+        
+        int i = 0;
+        for (Site catalog_site : CatalogUtil.getAllSites(this.database)) {
+            Partition catalog_part = CollectionUtil.first(catalog_site.getPartitions());
+            pfs[i] = new SynthesizedPlanFragment();
+            pfs[i].fragmentId = SysProcFragmentId.PF_saveTest;
+            pfs[i].inputDependencyIds = new int[] { };
+            pfs[i].outputDependencyIds = new int[] { distributeId };
+            pfs[i].multipartition = true;
+            pfs[i].nonExecSites = false;
+            pfs[i].destPartitionId = catalog_part.getId();
+            pfs[i].parameters = params;
+            params.setParameters(filePath, fileNonce);
+            pfs[i].last_task = (catalog_site.getId() == hstore_site.getSiteId());
+            i += 1;
+        } // FOR
+
+        // a final plan fragment to aggregate the results
+        pfs[i] = new SynthesizedPlanFragment();
+        pfs[i].fragmentId = SysProcFragmentId.PF_saveTestResults;
+        pfs[i].inputDependencyIds = new int[] { distributeId };
+        pfs[i].outputDependencyIds = new int[] { aggregateId };
+        pfs[i].multipartition = false;
+        pfs[i].nonExecSites = false;
+        pfs[i].destPartitionId = CollectionUtil.first(hstore_site.getLocalPartitionIds());
+        pfs[i].parameters = params;
+        pfs[i].last_task = true;
+        return (this.executeSysProcPlanFragments(pfs, aggregateId));
+    }
+    
+    private final VoltTable[] performSaveFeasibilityWork(int distributeId, 
+                                                                                         int aggregateId, 
+                                                                                         String filePath,
+                                                                                         String fileNonce)
     {
-        SynthesizedPlanFragment[] pfs = new SynthesizedPlanFragment[2];
-
-        // This fragment causes each execution site to confirm the likely
-        // success of writing tables to disk
-        pfs[0] = new SynthesizedPlanFragment();
-        pfs[0].fragmentId = SysProcFragmentId.PF_saveTest;
-        pfs[0].outputDependencyIds = new int[]{ DEP_saveTest };
-        pfs[0].inputDependencyIds = new int[] {};
-        pfs[0].multipartition = true;
-        ParameterSet params = new ParameterSet();
-        params.setParameters(filePath, fileNonce);
-        pfs[0].parameters = params;
-
-        // This fragment aggregates the save-to-disk sanity check results
-        pfs[1] = new SynthesizedPlanFragment();
-        pfs[1].fragmentId = SysProcFragmentId.PF_saveTestResults;
-        pfs[1].outputDependencyIds = new int[]{ DEP_saveTestResults };
-        pfs[1].inputDependencyIds = new int[] { DEP_saveTest };
-        pfs[1].multipartition = false;
-        pfs[1].parameters = new ParameterSet();
-
         VoltTable[] results;
-        results = executeSysProcPlanFragments(pfs, DEP_saveTestResults);
+        results = autoDistribute(distributeId, 
+                                              aggregateId, 
+                                              filePath, 
+                                              fileNonce); 
         return results;
     }
 
